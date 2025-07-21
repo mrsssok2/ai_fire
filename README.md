@@ -20,6 +20,7 @@ hsv fire detection
 
 haar cascade model 
 
+
 dataset := https://www.kaggle.com/datasets/atulyakumar98/test-dataset
 
 we train the model using cascade trainer gui with the above images 
@@ -29,6 +30,29 @@ we train the model using cascade trainer gui with the above images
 <img width="1399" height="790" alt="Image" src="https://github.com/user-attachments/assets/f082edee-91a0-468c-b5a1-fdd1e5e90947" />
 
 <img width="1403" height="800" alt="Image" src="https://github.com/user-attachments/assets/50b14a1e-6ae1-452f-aa8c-21aa9ce089ce" />
+
+
+cnn model 
+
+train a CNN (Convolutional Neural Network) model  using TensorFlow Keras to classify images as fire and. no fire
+
+Database: https://www.kaggle.com/datasets/phylake1337/fire-dataset
+
+model training : = https://colab.research.google.com/drive/1TbO_pBiTCtn0L5OkdX5SaEVEOY0zA8iE#scrollTo=bBZVol2PArKV
+
+testing the model := https://colab.research.google.com/drive/1WOvQNlO0oBI94mtI9TmAuokz-i88wuzW?usp=sharing#scrollTo=xPUN897MaXq9
+
+
+to run the model in raspberry pi 
+
+```bash
+source sttr/bin/activate
+cd Desktop
+python fire.py
+```
+
+
+
 
 
 
