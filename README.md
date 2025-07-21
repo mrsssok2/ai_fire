@@ -51,6 +51,8 @@ cd Desktop
 python fire.py
 ```
 
+![Image](https://github.com/user-attachments/assets/955407a2-d937-4914-b709-47bf708278e6)
+
 
 
 
