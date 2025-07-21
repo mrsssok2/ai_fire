@@ -18,6 +18,15 @@ hsv fire detection
 ![Image](https://github.com/user-attachments/assets/2ff3738e-379a-46db-808a-b0c6e4eb4143)
 
 
+haar cascade model 
+
+dataset := https://www.kaggle.com/datasets/atulyakumar98/test-dataset
+
+
+
+
+
+
 
 
 
