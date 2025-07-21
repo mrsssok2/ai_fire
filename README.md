@@ -15,6 +15,8 @@ hardware setup
 
 hsv fire detection 
 
+![Image](https://github.com/user-attachments/assets/2ff3738e-379a-46db-808a-b0c6e4eb4143)
+
 
 
 
