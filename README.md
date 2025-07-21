@@ -22,9 +22,13 @@ haar cascade model
 
 dataset := https://www.kaggle.com/datasets/atulyakumar98/test-dataset
 
+we train the model using cascade trainer gui with the above images 
 
+<img width="1401" height="795" alt="Image" src="https://github.com/user-attachments/assets/a9d3d52c-2ed3-4077-9070-c4a9b102f22f" />
 
+<img width="1399" height="790" alt="Image" src="https://github.com/user-attachments/assets/f082edee-91a0-468c-b5a1-fdd1e5e90947" />
 
+<img width="1403" height="800" alt="Image" src="https://github.com/user-attachments/assets/50b14a1e-6ae1-452f-aa8c-21aa9ce089ce" />
 
 
 
