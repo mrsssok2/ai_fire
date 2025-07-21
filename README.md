@@ -54,6 +54,9 @@ python fire.py
 ![Image](https://github.com/user-attachments/assets/955407a2-d937-4914-b709-47bf708278e6)
 
 
+![Image](https://github.com/user-attachments/assets/6f190dfc-c991-44fc-bef9-2fc9a0e4dee2)
+
+
 
 
 
