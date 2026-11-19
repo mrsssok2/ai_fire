@@ -1,0 +1,22 @@
+# Single source of truth for the robot's geometry and sensor mounts (metres / degrees).
+# Read by the xacro (visuals) and by fire_sensor_sim (sensor model). Numbers are from the photos in the repo README
+# (flat board, four ~65 mm wheels, 3 flame sensors at the front edge, servo nozzle front centre).
+chassis: {length: 0.30, width: 0.22, thickness: 0.008}
+wheels: {radius: 0.0325, width: 0.026, x: 0.10, track: 0.25}     # axles at x = +-0.10, y = +-track/2
+
+# Flame sensors (digital IR modules, LOW = flame). Mount pose in base_link; yaw 0 = straight ahead.
+# half_angle_deg and range_m are SIMULATION parameters, not measured from the real modules:
+# range_m = distance at which a fire of intensity 1.0 straight ahead just trips the sensor.
+flame_sensors:
+  half_angle_deg: 30.0
+  range_m: 1.0
+  left:  {x: 0.145, y: 0.07,  yaw_deg: 40.0}
+  front: {x: 0.150, y: 0.0,   yaw_deg: 0.0}
+  right: {x: 0.145, y: -0.07, yaw_deg: -40.0}
+
+# Gas sensor (MQ-type module with digital output, LOW = gas). Simulation parameters.
+gas_sensor: {x: 0.02, y: -0.02, threshold_ppm: 300.0}
+
+# Servo + nozzle. servo angle 90 deg = straight ahead; joint angle = (servo - 90) deg, positive = left.
+nozzle: {x: 0.14, y: 0.0, length: 0.07}
+camera: {x: 0.11, y: 0.0, z: 0.075}

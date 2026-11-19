@@ -1,0 +1,175 @@
+<?xml version="1.0"?>
+<!-- 4-wheel diff-drive fire-fighting robot after the photos in the repo README: flat board, four wheels, three flame
+     sensors on the front edge, gas sensor, servo-swept nozzle, pump, water-bottle tank, USB webcam, battery,
+     L298N and SIM800L boards as visual props. Frame: base_link at the chassis centre at axle height, +X forward.
+     All geometry comes from config/robot.yaml. Gazebo: DiffDrive on all four wheels (/cmd_vel), servo through
+     JointPositionController (/nozzle/cmd, radians), ground-truth odometry, joint states, camera. -->
+<robot name="fire_bot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="cfg" value="${xacro.load_yaml('$(find fire_robot_description)/config/robot.yaml')}"/>
+  <xacro:property name="L" value="${cfg['chassis']['length']}"/>
+  <xacro:property name="W" value="${cfg['chassis']['width']}"/>
+  <xacro:property name="T" value="${cfg['chassis']['thickness']}"/>
+  <xacro:property name="WR" value="${cfg['wheels']['radius']}"/>
+  <xacro:property name="WW" value="${cfg['wheels']['width']}"/>
+  <xacro:property name="WX" value="${cfg['wheels']['x']}"/>
+  <xacro:property name="TRACK" value="${cfg['wheels']['track']}"/>
+  <xacro:property name="TOP" value="${T}"/>   <!-- z of the board's top face (board spans 0..T above base_link) -->
+
+  <material name="wood"><color rgba="0.80 0.65 0.45 1"/></material>
+  <material name="tire"><color rgba="0.05 0.05 0.05 1"/></material>
+  <material name="yellow"><color rgba="0.95 0.78 0.1 1"/></material>
+  <material name="blue"><color rgba="0.1 0.25 0.7 1"/></material>
+  <material name="red"><color rgba="0.75 0.1 0.1 1"/></material>
+  <material name="black"><color rgba="0.08 0.08 0.09 1"/></material>
+  <material name="white"><color rgba="0.92 0.92 0.9 1"/></material>
+  <material name="clear"><color rgba="0.75 0.85 0.95 0.35"/></material>
+  <material name="water"><color rgba="0.2 0.5 0.9 0.6"/></material>
+
+  <xacro:macro name="box_visual" params="xyz size mat rpy:='0 0 0'">
+    <visual><origin xyz="${xyz}" rpy="${rpy}"/><geometry><box size="${size}"/></geometry><material name="${mat}"/></visual>
+  </xacro:macro>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${T/2 + 0.02}"/>
+      <mass value="1.4"/>
+      <inertia ixx="0.01" iyy="0.015" izz="0.02" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+    <collision><origin xyz="0 0 ${T/2}"/><geometry><box size="${L} ${W} ${T}"/></geometry></collision>
+    <xacro:box_visual xyz="0 0 ${T/2}" size="${L} ${W} ${T}" mat="wood"/>
+    <!-- electronics, as on the board in the photos -->
+    <xacro:box_visual xyz="-0.08 -0.06 ${TOP + 0.025}" size="0.10 0.035 0.05" mat="black"/>     <!-- battery -->
+    <xacro:box_visual xyz="0.0 0.03 ${TOP + 0.015}" size="0.045 0.045 0.03" mat="red"/>          <!-- L298N -->
+    <xacro:box_visual xyz="0.0 -0.075 ${TOP + 0.008}" size="0.05 0.04 0.015" mat="blue"/>        <!-- SIM800L -->
+    <xacro:box_visual xyz="-0.02 0.0 ${TOP + 0.01}" size="0.07 0.055 0.02" mat="blue"/>          <!-- Arduino -->
+    <xacro:box_visual xyz="${cfg['gas_sensor']['x']} ${cfg['gas_sensor']['y']} ${TOP + 0.02}" size="0.032 0.022 0.04" mat="blue"/>
+    <visual>   <!-- pump -->
+      <origin xyz="-0.04 0.07 ${TOP + 0.02}"/><geometry><cylinder radius="0.015" length="0.04"/></geometry><material name="white"/>
+    </visual>
+    <visual>   <!-- water bottle tank (rear left) with water -->
+      <origin xyz="-0.10 0.065 ${TOP + 0.07}"/><geometry><cylinder radius="0.04" length="0.14"/></geometry><material name="clear"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.10 0.065 ${TOP + 0.05}"/><geometry><cylinder radius="0.037" length="0.10"/></geometry><material name="water"/>
+    </visual>
+    <!-- three flame sensor modules on the front edge, angled like in the photos -->
+    <xacro:macro name="flame_module" params="name">
+      <xacro:box_visual xyz="${cfg['flame_sensors'][name]['x']} ${cfg['flame_sensors'][name]['y']} ${TOP + 0.015}"
+                        rpy="0 0 ${radians(cfg['flame_sensors'][name]['yaw_deg'])}" size="0.012 0.03 0.03" mat="blue"/>
+      <visual>   <!-- the dark photodiode dome -->
+        <origin xyz="${cfg['flame_sensors'][name]['x'] + 0.008 * cos(radians(cfg['flame_sensors'][name]['yaw_deg']))}
+                     ${cfg['flame_sensors'][name]['y'] + 0.008 * sin(radians(cfg['flame_sensors'][name]['yaw_deg']))} ${TOP + 0.015}"/>
+        <geometry><sphere radius="0.007"/></geometry><material name="black"/>
+      </visual>
+    </xacro:macro>
+    <xacro:flame_module name="left"/>
+    <xacro:flame_module name="front"/>
+    <xacro:flame_module name="right"/>
+  </link>
+
+  <!-- ===== wheels: four, all driven; spherical collision shapes so skid steering turns easily ===== -->
+  <xacro:macro name="wheel" params="name x y side">
+    <link name="${name}">
+      <inertial><mass value="0.05"/><inertia ixx="2e-5" iyy="3e-5" izz="2e-5" ixy="0" ixz="0" iyz="0"/></inertial>
+      <collision><origin rpy="${pi/2} 0 0"/><geometry><sphere radius="${WR}"/></geometry>
+        <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+      </collision>
+      <visual><origin rpy="${pi/2} 0 0"/><geometry><cylinder radius="${WR}" length="${WW}"/></geometry><material name="tire"/></visual>
+      <visual><origin xyz="0 ${-side * 0.017} 0" rpy="${pi/2} 0 0"/><geometry><cylinder radius="0.02" length="0.01"/></geometry><material name="yellow"/></visual>
+    </link>
+    <joint name="${name}_joint" type="continuous">
+      <parent link="base_link"/><child link="${name}"/>
+      <origin xyz="${x} ${y} 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.002"/>
+    </joint>
+  </xacro:macro>
+  <xacro:wheel name="wheel_fl" x="${WX}" y="${TRACK/2}" side="1"/>
+  <xacro:wheel name="wheel_fr" x="${WX}" y="${-TRACK/2}" side="-1"/>
+  <xacro:wheel name="wheel_rl" x="${-WX}" y="${TRACK/2}" side="1"/>
+  <xacro:wheel name="wheel_rr" x="${-WX}" y="${-TRACK/2}" side="-1"/>
+
+  <!-- ===== servo + nozzle: servo 90 deg = straight ahead, joint = (servo - 90) deg, positive = left ===== -->
+  <link name="nozzle_base">
+    <inertial><mass value="0.01"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+    <xacro:box_visual xyz="-0.012 0 0" size="0.023 0.012 0.022" mat="blue"/>
+  </link>
+  <joint name="nozzle_base_fixed" type="fixed">
+    <parent link="base_link"/><child link="nozzle_base"/>
+    <origin xyz="${cfg['nozzle']['x']} ${cfg['nozzle']['y']} ${TOP + 0.02}"/>
+  </joint>
+  <link name="nozzle_arm">
+    <inertial><origin xyz="${cfg['nozzle']['length']/2} 0 0"/><mass value="0.01"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+    <visual>
+      <origin xyz="${cfg['nozzle']['length']/2} 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="0.004" length="${cfg['nozzle']['length']}"/></geometry><material name="clear"/>
+    </visual>
+    <xacro:box_visual xyz="0.004 0 0" size="0.03 0.006 0.003" mat="white"/>   <!-- servo horn -->
+  </link>
+  <joint name="nozzle_servo_joint" type="revolute">
+    <parent link="nozzle_base"/><child link="nozzle_arm"/>
+    <origin xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.8" upper="0.8" effort="1.0" velocity="3.5"/>
+    <dynamics damping="0.01"/>
+  </joint>
+  <link name="nozzle_tip"/>
+  <joint name="nozzle_tip_fixed" type="fixed">
+    <parent link="nozzle_arm"/><child link="nozzle_tip"/>
+    <origin xyz="${cfg['nozzle']['length']} 0 0"/>
+  </joint>
+
+  <!-- ===== USB webcam (Pi robot) ===== -->
+  <link name="camera_link">
+    <inertial><mass value="0.05"/><inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/></inertial>
+    <xacro:box_visual xyz="-0.01 0 -0.02" size="0.03 0.04 0.03" mat="black"/>
+    <xacro:box_visual xyz="0 0 0" size="0.02 0.06 0.03" mat="black"/>
+  </link>
+  <joint name="camera_fixed" type="fixed">
+    <parent link="base_link"/><child link="camera_link"/>
+    <origin xyz="${cfg['camera']['x']} ${cfg['camera']['y']} ${cfg['camera']['z']}"/>
+  </joint>
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <camera>
+        <horizontal_fov>1.05</horizontal_fov>
+        <image><width>320</width><height>240</height></image>
+        <clip><near>0.05</near><far>20</far></clip>
+      </camera>
+      <always_on>1</always_on>
+      <update_rate>10</update_rate>
+      <topic>/camera/image_raw</topic>
+    </sensor>
+  </gazebo>
+
+  <!-- ===== Gazebo plugins ===== -->
+  <gazebo>
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>wheel_fl_joint</left_joint><left_joint>wheel_rl_joint</left_joint>
+      <right_joint>wheel_fr_joint</right_joint><right_joint>wheel_rr_joint</right_joint>
+      <wheel_separation>${TRACK}</wheel_separation>
+      <wheel_radius>${WR}</wheel_radius>
+      <max_linear_acceleration>3.0</max_linear_acceleration>
+      <max_angular_acceleration>12.0</max_angular_acceleration>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/fire_bot/wheel_odom_gz</odom_topic>
+      <tf_topic>/fire_bot/wheel_tf_gz</tf_topic>
+      <odom_publish_frequency>10</odom_publish_frequency>
+    </plugin>
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>world</odom_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <dimensions>3</dimensions>
+      <odom_publish_frequency>30</odom_publish_frequency>
+      <odom_topic>/fire_bot/ground_truth_gz</odom_topic>
+      <tf_topic>/fire_bot/gt_tf_gz</tf_topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>nozzle_servo_joint</joint_name>
+      <topic>/nozzle/cmd</topic>
+      <p_gain>8</p_gain><i_gain>0</i_gain><d_gain>0.3</d_gain>
+      <cmd_max>6</cmd_max><cmd_min>-6</cmd_min>
+    </plugin>
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher"/>
+  </gazebo>
+</robot>

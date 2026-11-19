@@ -1,0 +1,10 @@
+# Fires in the world frame (metres). The robot starts at the origin facing +X.
+# intensity: 1.0 = a fire that trips a flame sensor at config/robot.yaml `range_m` straight ahead.
+# gas_ppm:   gas concentration at the fire itself (0 = no gas); drives the gas sensor / SMS.
+# NOTE: the Arduino robot never searches, it only reacts to what its three sensors see. The first fire sits inside the
+# left sensor's cone on purpose; the others are for the later steps and for driving the robot by hand
+# (`autonomous:=false`, then publish /cmd_vel).
+fires:
+  - {id: f1, x: 0.75, y: 0.45, intensity: 1.0, gas_ppm: 0.0}
+  - {id: f2, x: 2.60, y: -1.40, intensity: 1.0, gas_ppm: 1500.0}
+  - {id: f3, x: -1.20, y: 1.80, intensity: 1.5, gas_ppm: 0.0}
