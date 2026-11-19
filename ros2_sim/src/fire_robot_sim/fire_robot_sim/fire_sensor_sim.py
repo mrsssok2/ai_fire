@@ -1,11 +1,13 @@
 """Simulated flame sensors (left/front/right) and gas sensor from the robot's ground-truth pose + fires.yaml."""
+import dataclasses
+import json
 import math
 
 import rclpy
 import yaml
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
-from std_msgs.msg import Bool, Float32
+from std_msgs.msg import Bool, Float32, String
 
 from fire_robot_sim.core.sensors import Fire, FlameSensor, flame_signal, gas_ppm
 
@@ -40,12 +42,19 @@ class FireSensorSim(Node):
         self.gas_pub = self.create_publisher(Bool, "/sensors/gas", 10)
         self.ppm_pub = self.create_publisher(Float32, "/sensors/gas/ppm", 10)
         self.create_subscription(Odometry, "/fire_bot/odom", self.on_odom, 10)
+        self.create_subscription(String, "/fires/state", self.on_fires, 10)     # intensities from fire_manager
         self.create_timer(1.0 / self.get_parameter("rate").value, self.tick)
         self.get_logger().info(f"{len(self.fires)} fires, sensors: {', '.join(self.sensors)}")
 
     def on_odom(self, msg):
         p = msg.pose.pose
         self.pose = (p.position.x, p.position.y, yaw_of(p.orientation))
+
+    def on_fires(self, msg):
+        """fire_manager: a fire that is sprayed shrinks (weaker flame signal, less gas) and goes out."""
+        state = {f["id"]: f for f in json.loads(msg.data)}
+        self.fires = [dataclasses.replace(f, intensity=state[f.id]["effective"], gas_ppm=state[f.id]["gas_ppm"]) if f.id in state else f
+                      for f in self.fires]
 
     def tick(self):
         if self.pose is None:

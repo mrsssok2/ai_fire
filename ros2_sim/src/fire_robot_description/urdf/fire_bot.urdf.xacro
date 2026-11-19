@@ -23,11 +23,18 @@
   <material name="black"><color rgba="0.08 0.08 0.09 1"/></material>
   <material name="white"><color rgba="0.92 0.92 0.9 1"/></material>
   <material name="clear"><color rgba="0.75 0.85 0.95 0.35"/></material>
+  <material name="tube"><color rgba="0.70 0.85 0.95 0.75"/></material>
   <material name="water"><color rgba="0.2 0.5 0.9 0.6"/></material>
 
   <xacro:macro name="box_visual" params="xyz size mat rpy:='0 0 0'">
     <visual><origin xyz="${xyz}" rpy="${rpy}"/><geometry><box size="${size}"/></geometry><material name="${mat}"/></visual>
   </xacro:macro>
+
+  <xacro:property name="MESHES" value="file://$(find fire_robot_description)/meshes"/>
+  <xacro:property name="TANK" value="${cfg['tank']}"/>
+  <xacro:property name="PUMP" value="${cfg['pump']}"/>
+  <material name="silver"><color rgba="0.75 0.76 0.78 1"/></material>
+  <material name="gold"><color rgba="0.85 0.7 0.2 1"/></material>
 
   <link name="base_link">
     <inertial>
@@ -37,22 +44,51 @@
     </inertial>
     <collision><origin xyz="0 0 ${T/2}"/><geometry><box size="${L} ${W} ${T}"/></geometry></collision>
     <xacro:box_visual xyz="0 0 ${T/2}" size="${L} ${W} ${T}" mat="wood"/>
-    <!-- electronics, as on the board in the photos -->
-    <xacro:box_visual xyz="-0.08 -0.06 ${TOP + 0.025}" size="0.10 0.035 0.05" mat="black"/>     <!-- battery -->
-    <xacro:box_visual xyz="0.0 0.03 ${TOP + 0.015}" size="0.045 0.045 0.03" mat="red"/>          <!-- L298N -->
-    <xacro:box_visual xyz="0.0 -0.075 ${TOP + 0.008}" size="0.05 0.04 0.015" mat="blue"/>        <!-- SIM800L -->
-    <xacro:box_visual xyz="-0.02 0.0 ${TOP + 0.01}" size="0.07 0.055 0.02" mat="blue"/>          <!-- Arduino -->
-    <xacro:box_visual xyz="${cfg['gas_sensor']['x']} ${cfg['gas_sensor']['y']} ${TOP + 0.02}" size="0.032 0.022 0.04" mat="blue"/>
-    <visual>   <!-- pump -->
-      <origin xyz="-0.04 0.07 ${TOP + 0.02}"/><geometry><cylinder radius="0.015" length="0.04"/></geometry><material name="white"/>
+
+    <!-- electronics, placed like the photo (front = +x, robot left = +y) -->
+    <xacro:box_visual xyz="-0.115 0.045 ${TOP + 0.025}" size="0.065 0.10 0.05" mat="black"/>            <!-- big black battery, rear left -->
+    <xacro:box_visual xyz="-0.03 -0.085 ${TOP + 0.0085}" size="0.05 0.026 0.017" mat="blue"/>            <!-- 9 V battery -->
+    <xacro:box_visual xyz="-0.025 0.03 ${TOP + 0.015}" size="0.043 0.043 0.03" mat="red"/>              <!-- L298N motor driver -->
+    <xacro:box_visual xyz="0.0 -0.075 ${TOP + 0.009}" size="0.03 0.04 0.018" mat="blue"/>               <!-- relay board -->
+    <xacro:box_visual xyz="0.01 0.075 ${TOP + 0.0075}" size="0.05 0.04 0.015" mat="blue"/>              <!-- SIM800L -->
+    <xacro:box_visual xyz="0.06 0.012 ${TOP + 0.005}" size="0.085 0.055 0.01" mat="white"/>             <!-- breadboard -->
+    <xacro:box_visual xyz="0.065 0.012 ${TOP + 0.013}" size="0.045 0.018 0.006" mat="blue"/>            <!-- Arduino -->
+    <xacro:box_visual xyz="${cfg['gas_sensor']['x']} ${cfg['gas_sensor']['y']} ${TOP + 0.006}" size="0.03 0.022 0.012" mat="blue"/>
+    <visual>   <!-- MQ gas sensor can -->
+      <origin xyz="${cfg['gas_sensor']['x']} ${cfg['gas_sensor']['y']} ${TOP + 0.02}"/>
+      <geometry><cylinder radius="0.009" length="0.016"/></geometry><material name="silver"/>
     </visual>
-    <visual>   <!-- water bottle tank (rear left) with water -->
-      <origin xyz="-0.10 0.065 ${TOP + 0.07}"/><geometry><cylinder radius="0.04" length="0.14"/></geometry><material name="clear"/>
+    <visual>   <!-- webcam post -->
+      <origin xyz="${cfg['camera']['x'] - 0.01} ${cfg['camera']['y']} ${(cfg['camera']['z'] + TOP) / 2 - 0.01}"/>
+      <geometry><cylinder radius="0.004" length="${cfg['camera']['z'] - TOP - 0.02}"/></geometry><material name="black"/>
+    </visual>
+
+    <!-- water tank (clear bottle, rear right), pump (white cylinder) and the clear tube between them and to the nozzle -->
+    <visual>
+      <origin xyz="${TANK['x']} ${TANK['y']} ${TOP + TANK['height'] / 2}"/>
+      <geometry><cylinder radius="${TANK['radius']}" length="${TANK['height']}"/></geometry><material name="clear"/>
+    </visual>
+    <visual>   <!-- bottle cap -->
+      <origin xyz="${TANK['x']} ${TANK['y']} ${TOP + TANK['height'] + 0.004}"/>
+      <geometry><cylinder radius="0.016" length="0.008"/></geometry><material name="blue"/>
     </visual>
     <visual>
-      <origin xyz="-0.10 0.065 ${TOP + 0.05}"/><geometry><cylinder radius="0.037" length="0.10"/></geometry><material name="water"/>
+      <origin xyz="${PUMP['x']} ${PUMP['y']} ${TOP + 0.0165}" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="${PUMP['radius']}" length="${PUMP['length']}"/></geometry><material name="white"/>
     </visual>
-    <!-- three flame sensor modules on the front edge, angled like in the photos -->
+    <visual>
+      <origin xyz="${PUMP['x'] - PUMP['length']/2 - 0.003} ${PUMP['y']} ${TOP + 0.0165}" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="0.005" length="0.006"/></geometry><material name="white"/>
+    </visual>
+    <visual>
+      <origin xyz="${PUMP['x'] + PUMP['length']/2 + 0.003} ${PUMP['y']} ${TOP + 0.0165}" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="0.005" length="0.006"/></geometry><material name="white"/>
+    </visual>
+    <visual>
+      <geometry><mesh filename="${MESHES}/tube.obj"/></geometry><material name="tube"/>
+    </visual>
+
+    <!-- three flame sensor modules on the front edge, angled like in the photo -->
     <xacro:macro name="flame_module" params="name">
       <xacro:box_visual xyz="${cfg['flame_sensors'][name]['x']} ${cfg['flame_sensors'][name]['y']} ${TOP + 0.015}"
                         rpy="0 0 ${radians(cfg['flame_sensors'][name]['yaw_deg'])}" size="0.012 0.03 0.03" mat="blue"/>
@@ -66,6 +102,23 @@
     <xacro:flame_module name="front"/>
     <xacro:flame_module name="right"/>
   </link>
+
+  <!-- ===== water level inside the bottle: a separate body that drops through the board as the tank empties.
+         (position command in metres, 0 = full, -water_height = empty; the lower part is hidden below the board) ===== -->
+  <link name="water">
+    <inertial><mass value="0.02"/><inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/></inertial>
+    <visual>
+      <origin xyz="0 0 ${TANK['water_height'] / 2}"/>
+      <geometry><cylinder radius="${TANK['radius'] - 0.003}" length="${TANK['water_height']}"/></geometry><material name="water"/>
+    </visual>
+  </link>
+  <joint name="water_level_joint" type="prismatic">
+    <parent link="base_link"/><child link="water"/>
+    <origin xyz="${TANK['x']} ${TANK['y']} ${TOP}"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-TANK['water_height']}" upper="0" effort="5" velocity="1"/>
+    <dynamics damping="0.5" friction="1.0"/>
+  </joint>
 
   <!-- ===== wheels: four, all driven; spherical collision shapes so skid steering turns easily ===== -->
   <xacro:macro name="wheel" params="name x y side">
@@ -89,22 +142,31 @@
   <xacro:wheel name="wheel_rl" x="${-WX}" y="${TRACK/2}" side="1"/>
   <xacro:wheel name="wheel_rr" x="${-WX}" y="${-TRACK/2}" side="-1"/>
 
-  <!-- ===== servo + nozzle: servo 90 deg = straight ahead, joint = (servo - 90) deg, positive = left ===== -->
+  <!-- ===== servo + nozzle: the nozzle is bolted to the servo horn and sweeps with it.
+         servo 90 deg = straight ahead, joint = (servo - 90) deg, positive = left ===== -->
   <link name="nozzle_base">
     <inertial><mass value="0.01"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
-    <xacro:box_visual xyz="-0.012 0 0" size="0.023 0.012 0.022" mat="blue"/>
+    <xacro:box_visual xyz="-0.004 0 -0.015" size="0.023 0.012 0.022" mat="blue"/>     <!-- servo body -->
+    <xacro:box_visual xyz="-0.015 0 -0.020" size="0.008 0.012 0.003" mat="blue"/>     <!-- mounting ear -->
   </link>
   <joint name="nozzle_base_fixed" type="fixed">
     <parent link="base_link"/><child link="nozzle_base"/>
-    <origin xyz="${cfg['nozzle']['x']} ${cfg['nozzle']['y']} ${TOP + 0.02}"/>
+    <origin xyz="${cfg['nozzle']['x']} ${cfg['nozzle']['y']} ${TOP + 0.026}"/>
   </joint>
   <link name="nozzle_arm">
-    <inertial><origin xyz="${cfg['nozzle']['length']/2} 0 0"/><mass value="0.01"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
-    <visual>
-      <origin xyz="${cfg['nozzle']['length']/2} 0 0" rpy="0 ${pi/2} 0"/>
-      <geometry><cylinder radius="0.004" length="${cfg['nozzle']['length']}"/></geometry><material name="clear"/>
+    <inertial><origin xyz="${cfg['nozzle']['length']/2} 0 0.004"/><mass value="0.01"/><inertia ixx="1e-6" iyy="1e-6" izz="1e-6" ixy="0" ixz="0" iyz="0"/></inertial>
+    <xacro:box_visual xyz="0.002 0 0.001" size="0.028 0.007 0.003" mat="white"/>      <!-- servo horn -->
+    <visual>   <!-- clear tube on the horn, ending in the nozzle -->
+      <origin xyz="${cfg['nozzle']['length']/2} 0 0.005" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="0.0032" length="${cfg['nozzle']['length']}"/></geometry><material name="tube"/>
     </visual>
-    <xacro:box_visual xyz="0.004 0 0" size="0.03 0.006 0.003" mat="white"/>   <!-- servo horn -->
+    <visual>
+      <origin xyz="${cfg['nozzle']['length'] - 0.004} 0 0.005" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="0.0042" length="0.008"/></geometry><material name="black"/>
+    </visual>
+    <visual>   <!-- two cable ties holding the tube to the horn -->
+      <origin xyz="0.004 0 0.003"/><geometry><box size="0.003 0.012 0.009"/></geometry><material name="white"/>
+    </visual>
   </link>
   <joint name="nozzle_servo_joint" type="revolute">
     <parent link="nozzle_base"/><child link="nozzle_arm"/>
@@ -116,14 +178,14 @@
   <link name="nozzle_tip"/>
   <joint name="nozzle_tip_fixed" type="fixed">
     <parent link="nozzle_arm"/><child link="nozzle_tip"/>
-    <origin xyz="${cfg['nozzle']['length']} 0 0"/>
+    <origin xyz="${cfg['nozzle']['length']} 0 0.005"/>
   </joint>
 
   <!-- ===== USB webcam (Pi robot) ===== -->
   <link name="camera_link">
     <inertial><mass value="0.05"/><inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/></inertial>
-    <xacro:box_visual xyz="-0.01 0 -0.02" size="0.03 0.04 0.03" mat="black"/>
-    <xacro:box_visual xyz="0 0 0" size="0.02 0.06 0.03" mat="black"/>
+    <xacro:box_visual xyz="-0.008 0 0" size="0.02 0.06 0.03" mat="black"/>
+    <visual><origin xyz="0.004 0 0" rpy="0 ${pi/2} 0"/><geometry><cylinder radius="0.011" length="0.008"/></geometry><material name="silver"/></visual>
   </link>
   <joint name="camera_fixed" type="fixed">
     <parent link="base_link"/><child link="camera_link"/>
@@ -167,8 +229,14 @@
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>nozzle_servo_joint</joint_name>
       <topic>/nozzle/cmd</topic>
-      <p_gain>8</p_gain><i_gain>0</i_gain><d_gain>0.3</d_gain>
+      <p_gain>14</p_gain><i_gain>0</i_gain><d_gain>0.3</d_gain>
       <cmd_max>6</cmd_max><cmd_min>-6</cmd_min>
+    </plugin>
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>water_level_joint</joint_name>
+      <topic>/water/level_cmd</topic>
+      <p_gain>400</p_gain><i_gain>0</i_gain><d_gain>5</d_gain>
+      <cmd_max>5</cmd_max><cmd_min>-5</cmd_min>
     </plugin>
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher"/>
   </gazebo>

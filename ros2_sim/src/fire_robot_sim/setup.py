@@ -20,5 +20,9 @@ setup(
         "fire_sensor_sim = fire_robot_sim.fire_sensor_sim:main",
         "arduino_bot = fire_robot_sim.arduino_bot:main",
         "sim800l = fire_robot_sim.sim800l_node:main",
+        "fire_manager = fire_robot_sim.fire_manager:main",
+        "water_system = fire_robot_sim.water_system:main",
+        "cnn_detector = fire_robot_sim.cnn_detector:main",
+        "fire_monitor = fire_robot_sim.fire_monitor:main",
     ]},
 )

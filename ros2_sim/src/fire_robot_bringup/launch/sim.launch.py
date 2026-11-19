@@ -1,4 +1,4 @@
-"""Fire-fighting robot simulation (step 1: robot + world + Arduino flame-sensor behaviour).
+"""Fire-fighting robot simulation: robot + world with realistic fires + Arduino logic + water system + CNN + monitor window.
 
     ros2 launch fire_robot_bringup sim.launch.py                      # Gazebo window + everything
     ros2 launch fire_robot_bringup sim.launch.py gui:=false           # headless
@@ -19,28 +19,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-
-def fire_model(f):
-    """Placeholder fire (step 1): emissive cones + glow light on a solid pit (the robot cannot drive through the fire).
-    Step 2 replaces the cones with textured sprites + particles."""
-    s = float(f["intensity"]) ** 0.5
-    cone = lambda name, r, h, rgb, z: (
-        f'<visual name="{name}"><pose>0 0 {z * s:.3f} 0 0 0</pose><geometry><cone><radius>{r * s:.3f}</radius>'
-        f'<length>{h * s:.3f}</length></cone></geometry><material><ambient>{rgb} 1</ambient><diffuse>{rgb} 1</diffuse>'
-        f'<emissive>{rgb} 1</emissive></material></visual>')
-    return f'''    <model name="fire_{f["id"]}">
-      <static>true</static>
-      <pose>{f["x"]} {f["y"]} 0 0 0 0</pose>
-      <link name="link">
-        <collision name="pit"><pose>0 0 0.025 0 0 0</pose><geometry><cylinder><radius>{0.12 * s:.3f}</radius><length>0.05</length></cylinder></geometry></collision>
-        <visual name="scorch"><pose>0 0 0.001 0 0 0</pose><geometry><cylinder><radius>{0.13 * s:.3f}</radius><length>0.002</length></cylinder></geometry>
-          <material><diffuse>0.05 0.04 0.03 1</diffuse></material></visual>
-        {cone("flame_outer", 0.08, 0.26, "1.0 0.32 0.04", 0.13)}
-        {cone("flame_inner", 0.045, 0.17, "1.0 0.80 0.25", 0.085)}
-        <light type="point" name="glow"><pose>0 0 {0.15 * s:.3f} 0 0 0</pose><diffuse>1 0.55 0.2 1</diffuse>
-          <attenuation><range>2.0</range><constant>0.4</constant><linear>0.3</linear><quadratic>0.5</quadratic></attenuation></light>
-      </link>
-    </model>'''
+from fire_robot_sim import worldgen
 
 
 SHOT_CAMERA = '''    <model name="shot_camera">
@@ -63,7 +42,8 @@ def _setup(context):
         fires = yaml.safe_load(f)["fires"]
     with open(os.path.join(bringup, "worlds", "fire_world.sdf.in")) as f:
         world = f.read()
-    world = world.replace("<!--FIRES-->", "\n".join(fire_model(f) for f in fires))
+    assets = os.path.join(bringup, "assets")
+    world = world.replace("<!--FIRES-->", worldgen.fires_sdf(fires, assets))
     world = world.replace("<!--SHOT_CAMERA-->", SHOT_CAMERA if lc["shot_camera"] == "true" else "")
     fd, world_path = tempfile.mkstemp(prefix="fire_world_", suffix=".sdf")
     with os.fdopen(fd, "w") as f:
@@ -86,6 +66,14 @@ def _setup(context):
         Node(package="fire_robot_sim", executable="fire_sensor_sim", output="screen",
              parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, **sim_time}]),
         Node(package="fire_robot_sim", executable="sim800l", output="screen", parameters=[sim_time]),
+        Node(package="fire_robot_sim", executable="fire_manager", output="screen",
+             parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, "extinguish_time": float(lc["extinguish_time"]), **sim_time}]),
+        Node(package="fire_robot_sim", executable="water_system", output="screen",
+             parameters=[{"robot_yaml": robot_yaml, "initial_percent": float(lc["tank_percent"]), **sim_time}]),
+        Node(package="fire_robot_sim", executable="cnn_detector", output="screen",
+             parameters=[{"model_path": os.path.join(bringup, "models", "fire_cnn.onnx"), **sim_time}]),
+        Node(package="fire_robot_sim", executable="fire_monitor", output="screen",
+             parameters=[{"show": lc["monitor_window"] == "true", **sim_time}]),
         Node(package="fire_robot_sim", executable="arduino_bot", output="screen",
              condition=IfCondition(LaunchConfiguration("autonomous")),
              parameters=[{"robot_yaml": robot_yaml, "phone": lc["phone"], "wheel_speed": float(lc["wheel_speed"]),
@@ -105,6 +93,9 @@ def generate_launch_description():
         DeclareLaunchArgument("phone", default_value="+910000000000", description="PHONE of fire_sensor.ino"),
         DeclareLaunchArgument("wheel_speed", default_value="0.4", description="m/s of a driven side"),
         DeclareLaunchArgument("swap_motor_sides", default_value="true", description="see docs/design.md"),
+        DeclareLaunchArgument("monitor_window", default_value="true", description="open the live Fire Detection window"),
+        DeclareLaunchArgument("extinguish_time", default_value="4.0", description="s of full-strength spray that put a fire out"),
+        DeclareLaunchArgument("tank_percent", default_value="100.0", description="initial water level"),
         DeclareLaunchArgument("shot_camera", default_value="false", description="fixed camera on /shot/image (docs/tests)"),
         OpaqueFunction(function=_setup),
     ])

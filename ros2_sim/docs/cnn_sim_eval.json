@@ -1,0 +1,50 @@
+{
+ "facing f1, 1.6 m": {
+  "n": 22,
+  "mean": 0.299,
+  "min": 0.251,
+  "max": 0.408,
+  "fraction_ge_0.5": 0.0,
+  "mean_boxes": 1.14
+ },
+ "facing f1, 1.0 m": {
+  "n": 22,
+  "mean": 0.679,
+  "min": 0.479,
+  "max": 0.921,
+  "fraction_ge_0.5": 0.95,
+  "mean_boxes": 1.62
+ },
+ "facing f1, 0.6 m": {
+  "n": 22,
+  "mean": 0.978,
+  "min": 0.915,
+  "max": 1.0,
+  "fraction_ge_0.5": 1.0,
+  "mean_boxes": 1.91
+ },
+ "f1 at the edge of the view (25 deg off), 1.0 m": {
+  "n": 23,
+  "mean": 0.465,
+  "min": 0.276,
+  "max": 0.571,
+  "fraction_ge_0.5": 0.43,
+  "mean_boxes": 1.96
+ },
+ "looking away from every fire": {
+  "n": 23,
+  "mean": 0.274,
+  "min": 0.274,
+  "max": 0.274,
+  "fraction_ge_0.5": 0.0,
+  "mean_boxes": 0.0
+ },
+ "all fires out, facing f1, 0.6 m (charred logs, fading smoke)": {
+  "n": 18,
+  "mean": 0.389,
+  "min": 0.38,
+  "max": 0.395,
+  "fraction_ge_0.5": 0.0,
+  "mean_boxes": 0.0
+ }
+}
