@@ -1,8 +1,10 @@
 """Analytic flame and gas sensor models (simulation parameters, not measurements of the real modules).
 
-Flame sensor: a cone of half-angle `half_angle` around the sensor axis. For each fire the signal is
-    intensity * gain(off-axis angle) * (range / distance)^2
+Flame sensor: a cone of half-angle `half_angle` around the sensor axis; a fire of radius r is seen if the near edge of the pile
+(off-axis angle minus asin(r / distance)) is inside the cone, so a fire right next to the robot is not lost in a dead zone. For each fire the signal is
+    sqrt(intensity) * gain(off-axis angle) * (range / distance)^2
 with gain = cos(90 deg * angle / half_angle) inside the cone, 0 outside. Signal >= 1 trips the (digital) sensor,
+(sqrt: a flame that is mostly sprayed out is still a flame to an IR diode; only a fire that is out is invisible)
 so `range` is the distance at which an intensity-1 fire straight ahead just trips it.
 
 Gas sensor: concentration = sum of  gas_i * exp(-distance / decay)  ppm; trips above a threshold.
@@ -21,6 +23,7 @@ class Fire:
     y: float
     intensity: float = 1.0
     gas_ppm: float = 0.0        # gas concentration at the fire itself
+    radius: float = 0.0         # size of the burning pile: close up a fire is an extended source, not a point
 
 
 @dataclass(frozen=True)
@@ -48,10 +51,11 @@ def flame_signal(sensor: FlameSensor, robot_pose, fires) -> float:
         dx, dy = f.x - sx, f.y - sy
         d = max(math.hypot(dx, dy), 0.05)
         off = abs(wrap(math.atan2(dy, dx) - syaw))
+        off = max(0.0, off - math.asin(min(1.0, f.radius / d)))      # the near edge of the pile counts, not only its centre
         if off >= sensor.half_angle:
             continue
         gain = math.cos(0.5 * math.pi * off / sensor.half_angle)
-        total += f.intensity * gain * (sensor.range_m / d) ** 2
+        total += math.sqrt(max(f.intensity, 0.0)) * gain * (sensor.range_m / d) ** 2
     return total
 
 

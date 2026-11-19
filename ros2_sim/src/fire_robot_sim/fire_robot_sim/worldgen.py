@@ -72,11 +72,25 @@ def pit_model(fire, assets_dir):
       <static>true</static>
       <pose>{fire["x"]} {fire["y"]} 0 0 0 0</pose>
       <link name="link">
-        <collision name="pit"><pose>0 0 0.025 0 0 0</pose><geometry>{_cyl(0.15 * s, 0.05)}</geometry></collision>
         {chr(10).join("        " + p for p in parts)}
         {emitters}
       </link>
     </model>'''
+
+
+def block_model(fire):
+    """Solid footprint of the burning pile (the robot cannot drive through a fire). A separate model so that it can be moved
+    under the floor when the fire is out and the robot may pass."""
+    s = float(fire["intensity"]) ** 0.5
+    return f'''    <model name="{block_name(fire["id"])}">
+      <static>true</static>
+      <pose>{fire["x"]} {fire["y"]} 0 0 0 0</pose>
+      <link name="link"><collision name="pit"><pose>0 0 0.025 0 0 0</pose><geometry>{_cyl(0.15 * s, 0.05)}</geometry></collision></link>
+    </model>'''
+
+
+def block_name(fire_id):
+    return f"fire_{fire_id}_block"
 
 
 def variant_model(fire, frame, level, assets_dir):
@@ -143,6 +157,7 @@ def fires_sdf(fires, assets_dir):
     out = []
     for f in fires:
         out.append(pit_model(f, assets_dir))
+        out.append(block_model(f))
         for frame in range(N_FRAMES):
             for level in range(len(SCALE_LEVELS)):
                 out.append(variant_model(f, frame, level, assets_dir))

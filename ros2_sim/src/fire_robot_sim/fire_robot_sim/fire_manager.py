@@ -47,6 +47,7 @@ class FireManager(Node):
         self.create_subscription(JointState, "/joint_states", self.on_joints, 10)
         self.create_subscription(Bool, "/water/spraying", lambda m: setattr(self, "spraying", m.data), 10)
         self.create_service(Trigger, "/fires/extinguish_all", self.on_extinguish_all)    # test helper
+        self.create_service(Trigger, "/fires/relight", self.on_relight)                  # mission reset
         self.last = self.now()
         self.create_timer(0.05, self.physics)
         self.create_timer(1.0 / self.get_parameter("flicker_hz").value, self.visuals)
@@ -70,6 +71,12 @@ class FireManager(Node):
         res.success, res.message = True, "all fires out"
         return res
 
+    def on_relight(self, _req, res):
+        for f in self.fires:
+            f.intensity, f.out, f.smoke, f.hit_time = 1.0, False, 1.0, 0.0
+        res.success, res.message = True, "all fires relit"
+        return res
+
     def physics(self):
         now = self.now()
         dt, self.last = max(0.0, min(now - self.last, 0.5)), now
@@ -90,6 +97,9 @@ class FireManager(Node):
             return
         poses = []
         for f in self.fires:
+            if f.block_up == f.out:                       # solid while burning, passable once the fire is out
+                f.block_up = not f.out
+                poses.append((worldgen.block_name(f.id), f.x, f.y, 0.0 if f.block_up else worldgen.HIDDEN_Z, 0, 0, 0))
             level = None if f.out else scale_level(f.intensity)
             want = None
             if level is not None:

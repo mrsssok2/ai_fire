@@ -18,7 +18,12 @@ def test_range_is_where_an_intensity_one_fire_straight_ahead_trips():
 
 def test_inverse_square_and_intensity():
     d1 = flame_signal(FRONT, POSE, [Fire("a", 1.15, 0.0)])
-    assert flame_signal(FRONT, POSE, [Fire("a", 2.15, 0.0, 4.0)]) == pytest.approx(d1)   # 2x distance, 4x intensity
+    assert flame_signal(FRONT, POSE, [Fire("a", 2.15, 0.0, 16.0)]) == pytest.approx(d1)   # 2x distance needs 4x signal = 16x intensity (sqrt law)
+
+
+def test_a_mostly_sprayed_out_fire_is_still_seen_up_close_but_not_a_fire_that_is_out():
+    assert flame_signal(FRONT, POSE, [Fire("a", 0.35, 0.0, 0.1)]) > 1.0
+    assert flame_signal(FRONT, POSE, [Fire("a", 0.35, 0.0, 0.0)]) == 0.0
 
 
 def test_cone_cutoff_and_gain():
@@ -52,3 +57,11 @@ def test_gas_decays_with_distance():
     far = gas_ppm((0.0, 0.0, 0.0), (0.0, 0.0), fires)
     assert near > 300.0 > far
     assert gas_ppm(POSE, (0, 0), [Fire("x", 0.0, 0.0)]) == 0.0
+
+
+def test_a_fire_next_to_the_robot_is_not_lost_in_the_cone_edge_dead_zone():
+    pose = (1.4848, 1.2929, math.radians(0.56))           # the position where the mission used to get stuck
+    point = [Fire("f3", 1.8, 1.2, 1.2)]
+    pile = [Fire("f3", 1.8, 1.2, 1.2, radius=0.15)]
+    assert flame_signal(FRONT, pose, point) == 0.0
+    assert flame_signal(FRONT, pose, pile) >= 1.0

@@ -1,6 +1,7 @@
 """Fire-fighting robot simulation: robot + world with realistic fires + Arduino logic + water system + CNN + monitor window.
 
     ros2 launch fire_robot_bringup sim.launch.py                      # Gazebo window + everything
+    ros2 launch fire_robot_bringup sim.launch.py speed:=1.0 start_delay:=0   # real time, no waiting
     ros2 launch fire_robot_bringup sim.launch.py gui:=false           # headless
     ros2 launch fire_robot_bringup sim.launch.py autonomous:=false    # no Arduino program, drive via /cmd_vel
     ros2 launch fire_robot_bringup sim.launch.py swap_motor_sides:=false   # run fire_sensor.ino's motor pins literally
@@ -44,6 +45,7 @@ def _setup(context):
         world = f.read()
     assets = os.path.join(bringup, "assets")
     world = world.replace("<!--FIRES-->", worldgen.fires_sdf(fires, assets))
+    world = world.replace("@RTF@", str(float(lc["speed"])))
     world = world.replace("<!--SHOT_CAMERA-->", SHOT_CAMERA if lc["shot_camera"] == "true" else "")
     fd, world_path = tempfile.mkstemp(prefix="fire_world_", suffix=".sdf")
     with os.fdopen(fd, "w") as f:
@@ -66,6 +68,8 @@ def _setup(context):
         Node(package="fire_robot_sim", executable="fire_sensor_sim", output="screen",
              parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, **sim_time}]),
         Node(package="fire_robot_sim", executable="sim800l", output="screen", parameters=[sim_time]),
+        Node(package="fire_robot_sim", executable="mission", output="screen",
+             parameters=[{"start_delay": float(lc["start_delay"]), "follow": gui and lc["follow"] == "true", **sim_time}]),
         Node(package="fire_robot_sim", executable="fire_manager", output="screen",
              parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, "extinguish_time": float(lc["extinguish_time"]), **sim_time}]),
         Node(package="fire_robot_sim", executable="water_system", output="screen",
@@ -93,6 +97,9 @@ def generate_launch_description():
         DeclareLaunchArgument("phone", default_value="+910000000000", description="PHONE of fire_sensor.ino"),
         DeclareLaunchArgument("wheel_speed", default_value="0.4", description="m/s of a driven side"),
         DeclareLaunchArgument("swap_motor_sides", default_value="true", description="see docs/design.md"),
+        DeclareLaunchArgument("start_delay", default_value="15", description="s the robot waits before the mission starts (0 = at once); Enter / START button starts it earlier"),
+        DeclareLaunchArgument("speed", default_value="0.5", description="simulation speed = Gazebo real-time factor (0.5 = half speed, 1.0 = real time)"),
+        DeclareLaunchArgument("follow", default_value="true", description="Gazebo camera follows the robot"),
         DeclareLaunchArgument("monitor_window", default_value="true", description="open the live Fire Detection window"),
         DeclareLaunchArgument("extinguish_time", default_value="4.0", description="s of full-strength spray that put a fire out"),
         DeclareLaunchArgument("tank_percent", default_value="100.0", description="initial water level"),

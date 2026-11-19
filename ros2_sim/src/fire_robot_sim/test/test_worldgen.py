@@ -15,7 +15,7 @@ def test_every_fire_has_a_pit_and_12_flame_variants_and_a_shared_jet():
     for f in ("f1", "f2"):
         assert f"fire_{f}_pit" in names
         assert {worldgen.variant_name(f, k, j) for k in range(4) for j in range(3)} <= set(names)
-    assert len(names) == 2 * (1 + 12) + 2
+    assert len(names) == 2 * (1 + 1 + 12) + 2
 
 
 def test_flame_planes_use_real_photo_textures_and_start_hidden():
@@ -26,11 +26,16 @@ def test_flame_planes_use_real_photo_textures_and_start_hidden():
     assert any(t.endswith("flame_3.png") for t in albedo) and len([t for t in albedo if "flame_" in t]) == 3   # 3 crossed planes
 
 
-def test_pit_has_logs_stones_collision_and_two_particle_emitters():
+def test_the_solid_footprint_is_a_separate_model_so_it_can_be_moved_away():
+    models = {m.get("name"): m for m in world().findall("model")}
+    assert models["fire_f1_block"].find(".//collision") is not None
+    assert models["fire_f1_pit"].find(".//collision") is None
+
+
+def test_pit_has_logs_stones_and_two_particle_emitters():
     pit = [m for m in world().findall("model") if m.get("name") == "fire_f1_pit"][0]
     visuals = {v.get("name") for v in pit.iter("visual")}
     assert {"log0", "log4", "stone0", "ash"} <= visuals
-    assert pit.find(".//collision") is not None
     emitters = {e.get("name"): e.find("topic").text for e in pit.iter("particle_emitter")}
     assert emitters == {"flame": "/fire/f1/flame", "smoke": "/fire/f1/smoke"}
 

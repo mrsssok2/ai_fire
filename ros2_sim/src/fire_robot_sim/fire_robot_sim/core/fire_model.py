@@ -44,6 +44,7 @@ class FireSim:
     last_frame: int = -1
     shown: tuple | None = None           # (frame, level) of the visible flame variant
     hit_time: float = 0.0                # accumulated time under water (s)
+    block_up: bool = True                # the solid footprint is in place (it is moved away once the fire is out)
 
     def step(self, dt, effectiveness, extinguish_time=4.0, regrow_per_s=0.004, smoke_fade_s=10.0):
         """Returns True on the step the fire goes out."""

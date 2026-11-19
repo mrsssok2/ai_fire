@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Take the documentation screenshots from a running sim (launch with shot_camera:=true monitor_window:=false).
+"""Take the documentation screenshots from a running sim (launch with shot_camera:=true monitor_window:=false start_delay:=0 speed:=1.0).
 
     doc_shots.py static     # autonomous:=false: robot close-up, fire close-up, full tank
     doc_shots.py action     # autonomous:=true: tank before, robot spraying + detection window, fire out + tank after

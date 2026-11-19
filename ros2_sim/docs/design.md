@@ -69,6 +69,16 @@ an IR photodiode. So:
 * detectors trained on photos of real fires (Kaggle datasets in the README) will **not** automatically work on
   simulated fire. Step 6 measures exactly that (accuracy on real images vs on simulator frames) and reports it.
 
+## Mission control (watching it)
+
+`mission` node: the robot is idle until the countdown (`start_delay`, wall-clock seconds) ends or a `start` command arrives
+(`/mission/command`: terminal Enter, window keys/buttons). `/mission/running` (latched) powers the ported Arduino program
+on (setup() then loop()); on **reset** it is powered off (pump off, servo 90), the robot is teleported to the start, the tank
+refilled (`/water/refill`) and the fires relit (`/fires/relight`), then the countdown starts again. The state
+(`WAITING` / `RUNNING` / `DONE` / `TANK_EMPTY`) is shown as a banner in the Fire Detection window; nothing shuts down
+automatically. `speed` is Gazebo's real-time factor (all nodes run on sim time), and the Gazebo GUI camera follows the
+robot through the `/gui/follow` services.
+
 ## Fire, water and detection (step 2)
 
 * **Fire** = pit with charred logs, twigs and stones; flames are **three crossed billboard planes** textured with real,

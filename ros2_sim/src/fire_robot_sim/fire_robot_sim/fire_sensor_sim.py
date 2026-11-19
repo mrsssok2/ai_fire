@@ -14,7 +14,7 @@ from fire_robot_sim.core.sensors import Fire, FlameSensor, flame_signal, gas_ppm
 
 def load_fires(path):
     with open(path) as f:
-        return [Fire(**item) for item in yaml.safe_load(f)["fires"]]
+        return [Fire(**item, radius=0.14 * math.sqrt(item["intensity"])) for item in yaml.safe_load(f)["fires"]]
 
 
 def yaw_of(q):

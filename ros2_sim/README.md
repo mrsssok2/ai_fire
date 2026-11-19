@@ -3,7 +3,7 @@
 Simulation of the robots in this repo (the original files one level up are untouched). Design, fidelity rules,
 the sim-vs-real fire caveat and the 8-step plan are in [docs/design.md](docs/design.md).
 
-**Status: step 2 of 8**: realistic fires, water system, the CNN from `keras_model.h5`, a live detection window and a robot
+**Status: step 2 of 8** (plus mission control: start delay, speed, follow camera, reset): realistic fires, water system, the CNN from `keras_model.h5`, a live detection window and a robot
 model that follows the photo. Next: HSV/Haar detectors + the Pi robot logic, fusion, decoys and an evaluation
 (see the plan in [docs/design.md](docs/design.md)).
 
@@ -61,27 +61,49 @@ Needs Docker Desktop (WSL2, WSLg for the Gazebo window) and the local image `gur
 
 ```bash
 cd ~/projects/ai_fire/ros2_sim
-./run.sh                       # builds in Docker, opens Gazebo + the Fire Detection window; the robot reacts to the fire on its left
-./run.sh gui:=false monitor_window:=false   # headless
-./run.sh extinguish_time:=8    # harder fires
-./run.sh tank_percent:=8       # nearly empty tank -> tank_empty alert
-./run.sh autonomous:=false     # no Arduino program: drive with  ros2 topic pub /cmd_vel geometry_msgs/msg/Twist ...
-./run.sh phone:="+91..."       # number shown in the simulated SMS / call (default is a placeholder)
-./run.sh swap_motor_sides:=false   # run the motor pins exactly as written (see design.md)
+./run.sh
 ```
 
-Watch it: `ros2 topic echo /alerts`, `/sensors/flame_left/analog`, `/pump/state`, `/nozzle/cmd`.
+It builds in Docker and opens Gazebo (camera **follows the robot**, close enough to see the robot and the fire) plus the
+**Fire Detection** window. The robot is idle at first:
+
+| | |
+|---|---|
+| **Start** | after `start_delay` seconds (default 15, countdown on the window banner), or at once: **Enter** in the terminal, **Enter / Space / S** or the **START MISSION** button in the window |
+| **Speed** | `speed:=0.5` (default) = Gazebo runs at half real time; `speed:=1.0` = real time |
+| **Reset** | **r + Enter** in the terminal, **R** or the **RESET** button in the window: robot back to the start, tank refilled, fires relit, countdown again |
+| **End** | nothing closes or resets by itself: when all fires are out the window says `MISSION DONE: all fires out`, when the tank runs dry `TANK EMPTY: no water left`, and the sim keeps running until **Ctrl+C** |
+
+```bash
+./run.sh speed:=1.0 start_delay:=5       # real time, shorter wait
+./run.sh start_delay:=0                  # start at once
+./run.sh gui:=false monitor_window:=false   # headless
+./run.sh extinguish_time:=8              # harder fires
+./run.sh tank_percent:=8                 # nearly empty tank -> TANK EMPTY
+./run.sh autonomous:=false               # no Arduino program: drive with  ros2 topic pub /cmd_vel geometry_msgs/msg/Twist ...
+./run.sh phone:="+91..."                 # number shown in the simulated SMS / call (default is a placeholder)
+./run.sh swap_motor_sides:=false         # run the motor pins exactly as written (see design.md)
+./run.sh follow:=false                   # free Gazebo camera instead of following the robot
+```
+
+| ![countdown](docs/img/window_waiting.png) | ![mission done](docs/img/window_done.png) |
+|---|---|
+| *Countdown on the window banner, START / RESET buttons* | *`MISSION DONE: all fires out`, the sim keeps running* |
+
+The fires form a chain (`config/fires.yaml`): the robot sees f1 at the start; once it faces f1, f2 is in its right sensor's cone;
+once it faces f2, f3 is in its left sensor's cone, so "all fires out" is reachable by the original (non-searching) logic.
+Watch it: `ros2 topic echo /mission/state`, `/alerts`, `/sensors/flame_left/analog`, `/pump/state`, `/water_level`.
 
 ## Tests
 
 ```bash
-# pure logic, overlay, world generator, ONNX interface: 39 tests (needs numpy/OpenCV/onnxruntime: easiest in the image)
+# pure logic, overlay, world generator, ONNX interface: 50 tests (needs numpy/OpenCV/onnxruntime: easiest in the image)
 docker run --rm -v $PWD:/home/ubuntu/ros2_sim fire_ros2:jazzy bash -c \
   'source /opt/ros/jazzy/setup.bash; cd ~/ros2_sim/src/fire_robot_sim && python3 -m pytest -q'
 # URDF checks need the built workspace: colcon build && source install/setup.bash && cd src/fire_robot_description && python3 -m pytest test
 ```
 
-Screenshots are made with `scripts/doc_shots.py` against a sim launched with `shot_camera:=true`; the flame textures with
+`scripts/check_mission.py` checks start / done / reset end to end against a running sim. Screenshots are made with `scripts/doc_shots.py` against a sim launched with `shot_camera:=true start_delay:=0 speed:=1.0`; the flame textures with
 `assets/make_flame_sprites.py` (credits: [assets/CREDITS.md](assets/CREDITS.md)).
 
 ## Known limitations

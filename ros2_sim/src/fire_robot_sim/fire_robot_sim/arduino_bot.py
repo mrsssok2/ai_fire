@@ -10,6 +10,7 @@ import rclpy
 import yaml
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Bool, Float64, String
 
 from fire_robot_sim.core import arduino_logic as al
@@ -62,11 +63,12 @@ class ArduinoBot(Node):
         for pin, topic in ((al.LEFT, "left"), (al.RIGHT, "right"), (al.FORWARD, "front")):
             self.create_subscription(Bool, f"/sensors/flame_{topic}", lambda m, p=pin: self.set_level(p, m.data), 10)
         self.create_subscription(Bool, "/sensors/gas", lambda m: self.set_level(al.GAS_SENSOR, m.data), 10)
-        self.prog = al.program(self.io, self.get_parameter("phone").value)
-        self.wake = self.now()            # time at which the current delay() ends
+        self.prog, self.wake, self.running = None, 0.0, False
+        latched = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.create_subscription(Bool, "/mission/running", self.on_running, latched)
         self.create_timer(0.002, self.tick)     # delay() resolution 2 ms (servo sweep steps are 10 ms)
         self.create_timer(0.05, self.drive)
-        self.get_logger().info("fire_sensor.ino started (setup takes 2 s)")
+        self.get_logger().info("fire_sensor.ino waits for the mission to start (/mission/running)")
 
     def now(self):
         return self.get_clock().now().nanoseconds * 1e-9
@@ -74,7 +76,24 @@ class ArduinoBot(Node):
     def set_level(self, pin, detected):
         self.io.levels[pin] = 0 if detected else 1
 
+    def on_running(self, msg):
+        """Mission start = power on the Arduino (setup() runs, then loop()); reset = power off, everything idle."""
+        if msg.data and not self.running:
+            self.io.pins = (1, 1, 1, 1)
+            self.prog = al.program(self.io, self.get_parameter("phone").value)
+            self.wake = self.now()
+            self.get_logger().info("fire_sensor.ino started (setup takes 2 s)")
+        elif not msg.data and self.running:
+            self.prog = None
+            self.io.pins = (1, 1, 1, 1)
+            self.io.pump(False)
+            self.io.servo_write(90)
+            self.get_logger().info("fire_sensor.ino stopped (reset)")
+        self.running = msg.data
+
     def tick(self):
+        if self.prog is None:
+            return
         while self.now() >= self.wake:    # run until the program blocks on the next delay()
             self.wake += next(self.prog)  # (accumulate so 10 ms servo steps keep their rhythm)
             if self.wake < self.now() - 0.05:

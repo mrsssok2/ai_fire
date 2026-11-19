@@ -75,9 +75,44 @@ def panel(width, height, s):
     return p
 
 
-def compose(frame_rgb, conf, dets, status, threshold=0.5, scale=2):
-    """Full window image (BGR): scaled camera frame + banner + boxes, status panel on the right."""
+STRIP_H = 56
+BUTTONS = {"start": (10, 8, 310, 48), "reset": (330, 8, 630, 48)}      # inside the strip under the camera picture
+
+
+def mission_banner(frame, mission):
+    """Second banner under the detection banner: countdown / MISSION DONE / TANK EMPTY (nothing while running)."""
+    if not mission or mission.get("state") == "RUNNING" or not mission.get("message"):
+        return
+    colour = {"WAITING": AMBER, "DONE": GREEN, "TANK_EMPTY": RED}.get(mission["state"], GREY)
+    cv2.rectangle(frame, (0, 54), (frame.shape[1], 98), colour, -1)
+    cv2.putText(frame, mission["message"], (14, 86), FONT, 0.95, WHITE if mission["state"] != "WAITING" else DARK, 2, cv2.LINE_AA)
+
+
+def strip(width, mission):
+    s = np.full((STRIP_H, width, 3), (25, 25, 28), np.uint8)
+    waiting = bool(mission) and mission.get("state") == "WAITING"
+    for key, label, colour in (("start", "START MISSION  (Enter)", GREEN if waiting else (70, 70, 74)), ("reset", "RESET  (R)", BLUE)):
+        x0, y0, x1, y1 = BUTTONS[key]
+        cv2.rectangle(s, (x0, y0), (x1, y1), colour, -1)
+        cv2.rectangle(s, (x0, y0), (x1, y1), WHITE, 1)
+        cv2.putText(s, label, (x0 + 16, y0 + 28), FONT, 0.7, WHITE, 2, cv2.LINE_AA)
+    return s
+
+
+def button_at(x, y, cam_height):
+    """Which button (if any) is under window pixel (x, y)? The buttons sit in the strip below the camera picture."""
+    y -= cam_height
+    for key, (x0, y0, x1, y1) in BUTTONS.items():
+        if x0 <= x <= x1 and y0 <= y <= y1:
+            return key
+    return None
+
+
+def compose(frame_rgb, conf, dets, status, mission=None, threshold=0.5, scale=2):
+    """Full window image (BGR): scaled camera frame + banners + boxes + buttons strip, status panel on the right."""
     cam = cv2.resize(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR), None, fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
     boxes(cam, dets, scale)
     banner(cam, conf, threshold)
-    return np.hstack([cam, panel(320, cam.shape[0], status)])
+    mission_banner(cam, mission)
+    left = np.vstack([cam, strip(cam.shape[1], mission)])
+    return np.hstack([left, panel(320, left.shape[0], status)])

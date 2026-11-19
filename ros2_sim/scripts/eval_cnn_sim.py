@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How confidently does the CNN detect the simulated fires from the robot camera?
 
-Run against a sim launched with  autonomous:=false monitor_window:=false  (the fires burn, the robot stays where it is put):
+Run against a sim launched with  autonomous:=false monitor_window:=false speed:=1.0  (the fires burn, the robot stays where it is put):
     python3 scripts/eval_cnn_sim.py [out.json]
 
 The robot is teleported to a few views (facing fire f1 from different distances, off to the side, looking away) and the

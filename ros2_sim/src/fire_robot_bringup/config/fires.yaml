@@ -1,10 +1,13 @@
 # Fires in the world frame (metres). The robot starts at the origin facing +X.
 # intensity: 1.0 = a fire that trips a flame sensor at config/robot.yaml `range_m` straight ahead.
 # gas_ppm:   gas concentration at the fire itself (0 = no gas); drives the gas sensor / SMS.
-# NOTE: the Arduino robot never searches, it only reacts to what its three sensors see. The first fire sits inside the
-# left sensor's cone on purpose; the others are for the later steps and for driving the robot by hand
-# (`autonomous:=false`, then publish /cmd_vel).
+# NOTE: the Arduino robot never searches, it only reacts to what its three sensors see. The fires are laid out as a chain so
+# that "all fires out" is reachable: f1 is inside the left sensor's cone at the start; once the robot faces f1, f2 is inside
+# its right sensor's cone; once it faces f2, f3 is inside its left sensor's cone. f3 also leaks gas, so the "Gas Detected" SMS appears. NOTE the faithful Arduino quirk: the motors keep their last pins during the
+# 7 s SMS delay, so if the gas sensor trips while the robot is still turning toward a fire it keeps turning and spins away
+# (that is why only the last fire leaks: by then the robot is already driving straight at it).
+# Move the fires and the robot may never see them (drive it by hand with `autonomous:=false` and publish /cmd_vel).
 fires:
   - {id: f1, x: 0.75, y: 0.45, intensity: 1.0, gas_ppm: 0.0}
-  - {id: f2, x: 2.60, y: -1.40, intensity: 1.0, gas_ppm: 1500.0}
-  - {id: f3, x: -1.20, y: 1.80, intensity: 1.5, gas_ppm: 0.0}
+  - {id: f2, x: 1.50, y: 0.40, intensity: 1.0, gas_ppm: 0.0}
+  - {id: f3, x: 1.80, y: 1.20, intensity: 1.2, gas_ppm: 1500.0}
