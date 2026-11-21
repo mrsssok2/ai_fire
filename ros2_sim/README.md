@@ -105,10 +105,40 @@ The fires form a chain (`config/fires.yaml`): the robot sees f1 at the start; on
 once it faces f2, f3 is in its left sensor's cone, so "all fires out" is reachable by the original (non-searching) logic.
 Watch it: `ros2 topic echo /mission/state`, `/alerts`, `/sensors/flame_left/analog`, `/pump/state`, `/water_level`.
 
+## Phone alerts (Telegram, optional)
+
+`./run.sh alerts:=telegram` sends the simulated SIM800's events to your phone through a Telegram bot (`notifier` node; default `alerts:=off`).
+The SIM800 emulator itself is unchanged; the notifier only listens to `/alerts` and `/mission/state`.
+
+| event | message | photo |
+|---|---|---|
+| gas SMS | `GAS DETECTED: the robot sent its SMS` | no |
+| fire call | `FIRE ALERT: the robot is calling you` | latest `/fire/annotated` frame |
+| tank empty | `TANK EMPTY: no water left` | yes |
+| mission done | `MISSION DONE: all fires are out` | yes |
+
+Every message ends with a status line, e.g. `CNN 100% | flame: L F | gas 1500 ppm | water 78%`. Rate limit: one message per kind per 60 s
+(the original firmware calls every ~23 s) and at most 10 per 10 minutes; suppressed alerts are counted in the next message. The bot token and
+chat id are read **only from environment variables** (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`), are never logged or written to a file, and
+are stripped from error messages. `.env` is git-ignored in case you use one.
+
+```bash
+# 1. create a bot with @BotFather in Telegram (/newbot), copy the token. Type it in the terminal (not into a file):
+export TELEGRAM_BOT_TOKEN='123456:ABC...'
+# 2. open your bot in Telegram and press Start (or send "hi"), then print your chat id (Python 3 only, run on the host):
+python3 ~/projects/ai_fire/ros2_sim/scripts/telegram_chat_id.py
+export TELEGRAM_CHAT_ID='<the number it printed>'
+# 3. run the simulation with alerts (docker compose passes both variables into the container):
+cd ~/projects/ai_fire/ros2_sim && ./run.sh alerts:=telegram
+```
+
+Try it without credentials: `./run.sh alerts:=telegram telegram_dry_run:=true` only prints what would be sent. With `alerts:=telegram` and
+missing variables the node logs one error and sends nothing. `detection:=false` has no annotated frame, so fire alerts are text only.
+
 ## Tests
 
 ```bash
-# pure logic, fusion, scenes, decoys, overlay, world generator, ONNX interface: 69 tests (needs numpy/OpenCV/onnxruntime: easiest in the image)
+# pure logic, fusion, scenes, decoys, overlay, world generator, ONNX interface: 76 tests (needs numpy/OpenCV/onnxruntime: easiest in the image)
 docker run --rm -v $PWD:/home/ubuntu/ros2_sim fire_ros2:jazzy bash -c \
   'source /opt/ros/jazzy/setup.bash; cd ~/ros2_sim/src/fire_robot_sim && python3 -m pytest -q'
 # URDF checks need the built workspace: colcon build && source install/setup.bash && cd src/fire_robot_description && python3 -m pytest test

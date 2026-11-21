@@ -12,6 +12,8 @@ services:
       QT_QPA_PLATFORM: xcb
       QT_X11_NO_MITSHM: "1"
       ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}      # only used with alerts:=telegram; taken from your shell, never stored
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     devices: ["/dev/dxg"]
     volumes:
       - /mnt/wslg:/mnt/wslg

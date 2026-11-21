@@ -88,6 +88,9 @@ def _setup(context):
              parameters=[{"robot_yaml": robot_yaml, "phone": lc["phone"], "wheel_speed": float(lc["wheel_speed"]),
                           "swap_motor_sides": lc["swap_motor_sides"] == "true", "firmware": lc["firmware"], **sim_time}]),
     ]
+    if lc["alerts"] == "telegram":      # credentials come from the environment (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID), never from here
+        nodes.append(Node(package="fire_robot_sim", executable="notifier", output="screen",
+                          parameters=[{"dry_run": lc["telegram_dry_run"] == "true", **sim_time}]))
     if lc["shot_camera"] == "true":
         nodes.append(Node(package="ros_gz_bridge", executable="parameter_bridge", output="screen",
                           arguments=["/shot/image@sensor_msgs/msg/Image[gz.msgs.Image"]))
@@ -102,6 +105,8 @@ def generate_launch_description():
         DeclareLaunchArgument("phone", default_value="+910000000000", description="PHONE of fire_sensor.ino"),
         DeclareLaunchArgument("wheel_speed", default_value="0.4", description="m/s of a driven side"),
         DeclareLaunchArgument("swap_motor_sides", default_value="true", description="see docs/design.md"),
+        DeclareLaunchArgument("alerts", default_value="off", description="telegram = send the SIM800 events to your phone via a Telegram bot (needs TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID in the environment)"),
+        DeclareLaunchArgument("telegram_dry_run", default_value="false", description="with alerts:=telegram: only log what would be sent"),
         DeclareLaunchArgument("firmware", default_value="original", description="original = fire_sensor.ino as is; improved = call / SMS in the background (not in the .ino)"),
         DeclareLaunchArgument("sensor_noise", default_value="0.0", description="relative std-dev of the flame-sensor signal (0 = ideal)"),
         DeclareLaunchArgument("seed", default_value="0", description="random seed of the sensor noise"),
