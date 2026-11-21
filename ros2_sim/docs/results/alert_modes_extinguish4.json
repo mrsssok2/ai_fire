@@ -1,0 +1,64 @@
+[
+ {
+  "firmware": "original",
+  "seed": 1,
+  "outcome": "TANK_EMPTY",
+  "fires_out": 2,
+  "fire_out_t": {
+   "f1": 143.0,
+   "f2": 236.3
+  },
+  "time_s": 267.2,
+  "water_ml": 500.0,
+  "spray_s": 20.1,
+  "calls": 12,
+  "sms": 1,
+  "rtf": 0.95
+ },
+ {
+  "firmware": "improved",
+  "seed": 1,
+  "outcome": "TANK_EMPTY",
+  "fires_out": 1,
+  "fire_out_t": {
+   "f1": 14.1
+  },
+  "time_s": 27.8,
+  "water_ml": 500.0,
+  "spray_s": 20.0,
+  "calls": 2,
+  "sms": 0,
+  "rtf": 0.98
+ },
+ {
+  "firmware": "original",
+  "seed": 2,
+  "outcome": "TANK_EMPTY",
+  "fires_out": 2,
+  "fire_out_t": {
+   "f1": 143.4,
+   "f2": 236.9
+  },
+  "time_s": 267.4,
+  "water_ml": 500.0,
+  "spray_s": 20.1,
+  "calls": 12,
+  "sms": 1,
+  "rtf": 0.81
+ },
+ {
+  "firmware": "improved",
+  "seed": 2,
+  "outcome": "TANK_EMPTY",
+  "fires_out": 1,
+  "fire_out_t": {
+   "f1": 14.3
+  },
+  "time_s": 27.8,
+  "water_ml": 500.0,
+  "spray_s": 20.0,
+  "calls": 2,
+  "sms": 0,
+  "rtf": 0.69
+ }
+]

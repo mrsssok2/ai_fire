@@ -3,9 +3,10 @@
 Simulation of the robots in this repo (the original files one level up are untouched). Design, fidelity rules,
 the sim-vs-real fire caveat and the 8-step plan are in [docs/design.md](docs/design.md).
 
-**Status: step 2 of 8** (plus mission control: start delay, speed, follow camera, reset): realistic fires, water system, the CNN from `keras_model.h5`, a live detection window and a robot
-model that follows the photo. Next: HSV/Haar detectors + the Pi robot logic, fusion, decoys and an evaluation
-(see the plan in [docs/design.md](docs/design.md)).
+**Status: steps 1, 2, 6 and 7 of 8** (plus mission control: start delay, speed, follow camera, reset): realistic fires, water system, the CNN from `keras_model.h5`, a live detection window, a robot
+model that follows the photo, **flame-sensor + CNN fusion with decoys and an evaluation**, and an optional **non-blocking alert firmware**.
+Next: HSV/Haar detectors + the Pi robot logic (see the plan in [docs/design.md](docs/design.md)).
+Results: [docs/results/fusion_eval.md](docs/results/fusion_eval.md) and [docs/results/alert_modes.md](docs/results/alert_modes.md).
 
 | | |
 |---|---|
@@ -34,6 +35,14 @@ measured on it says little about real-world performance, see "How good is the CN
 * **Live window** (`fire_monitor`): robot camera + banner (`FIRE DETECTED 93%` red / `NO FIRE 12%` green from the CNN
   confidence) + boxes + side panel (flame sensors L/F/R, gas, tank %, pump, servo angle, last alert). It opens next to
   Gazebo (`monitor_window:=false` to disable) and is published as `/fire/annotated`.
+* **Fusion** (`fusion`, `core/fusion.py`): the flame sensors trigger, the CNN confirms, the two confidences are weighted
+  (`0.4 * p_flame + 0.6 * p_cnn >= 0.6`, flame sensors must have tripped, CNN reading held 1 s), and the flame sensors give a
+  bearing (signal-weighted mean of the three sensor axes) for aiming. `/fusion/state` carries the flame-only, CNN-only and
+  fused alarms side by side, `/fusion/alarm` the fused one, `/fusion/bearing` the direction. It does not drive the robot.
+* **Decoys** (`decoys:` list in a fires yaml, `scripts/eval_fusion.py` builds seeded scenes): red box, red barrel, orange cone
+  (look like fire, no IR), a sunlit window (bright, a bit of IR) and a hot lamp (bright orange, lots of IR: trips the flame sensors).
+* **Firmware modes** (`firmware:=original` default, `improved`): `original` is `fire_sensor.ino` exactly (the 21 s call and 7 s SMS block
+  everything); `improved` runs the call / SMS as a background job so spraying and driving continue. Not part of the real `.ino`.
 * Everything from step 1 still applies (Arduino logic port, SIM800L emulator, flame/gas sensors).
 
 ## How good is the CNN (honest)
@@ -84,6 +93,8 @@ It builds in Docker and opens Gazebo (camera **follows the robot**, close enough
 ./run.sh phone:="+91..."                 # number shown in the simulated SMS / call (default is a placeholder)
 ./run.sh swap_motor_sides:=false         # run the motor pins exactly as written (see design.md)
 ./run.sh follow:=false                   # free Gazebo camera instead of following the robot
+./run.sh firmware:=improved              # call / SMS in the background (default: original = blocking, as in the .ino)
+./run.sh sensor_noise:=0.1 seed:=3       # 10 % noise on the flame-sensor signal (default 0 = ideal)
 ```
 
 | ![countdown](docs/img/window_waiting.png) | ![mission done](docs/img/window_done.png) |
@@ -97,16 +108,31 @@ Watch it: `ros2 topic echo /mission/state`, `/alerts`, `/sensors/flame_left/anal
 ## Tests
 
 ```bash
-# pure logic, overlay, world generator, ONNX interface: 50 tests (needs numpy/OpenCV/onnxruntime: easiest in the image)
+# pure logic, fusion, scenes, decoys, overlay, world generator, ONNX interface: 69 tests (needs numpy/OpenCV/onnxruntime: easiest in the image)
 docker run --rm -v $PWD:/home/ubuntu/ros2_sim fire_ros2:jazzy bash -c \
   'source /opt/ros/jazzy/setup.bash; cd ~/ros2_sim/src/fire_robot_sim && python3 -m pytest -q'
 # URDF checks need the built workspace: colcon build && source install/setup.bash && cd src/fire_robot_description && python3 -m pytest test
+```
+
+Evaluations (each starts a fresh headless simulation per run; results in `docs/results/`):
+
+```bash
+docker compose run --rm -T sim /home/ubuntu/ros2_sim/scripts/in_container.sh scripts/eval_fusion.py --seeds 6        # ~10 min
+docker compose run --rm -T sim /home/ubuntu/ros2_sim/scripts/in_container.sh scripts/eval_alert_modes.py --runs 3 --extinguish 2   # ~15 min
 ```
 
 `scripts/check_mission.py` checks start / done / reset end to end against a running sim. Screenshots are made with `scripts/doc_shots.py` against a sim launched with `shot_camera:=true start_delay:=0 speed:=1.0`; the flame textures with
 `assets/make_flame_sprites.py` (credits: [assets/CREDITS.md](assets/CREDITS.md)).
 
 ## Known limitations
+
+* With the default 4 s `extinguish_time` the 3-fire chain layout does not always complete: the robot approaches f1 closer, f2 / f3 leave
+  its side sensors' cones and it never searches, so it stands still with fires left. `extinguish_time:=2` completes (the
+  alert-mode evaluation uses it). The tank (500 ml = 20 s of pump) is also tight for three fires.
+* The simulation runs at about real time at best (`speed` above 1 only changes the target, the CPU is the limit; at `speed:=3` the
+  firmware's timing drifts and the mission can stall), so batch evaluations run at `speed:=1.0`.
+* `detection:=false` and `visuals:=false` (launch) are for batch runs: no CNN / camera / fusion, resp. no flame and jet updates.
+  With `visuals:=false` a burnt-out fire keeps its solid footprint (it is moved away by the visuals update).
 
 * Gazebo particles are flat squares and cannot be re-aimed at runtime, so smoke and sparks look blocky up close and the
   water jet is built from translucent visuals instead of particles.

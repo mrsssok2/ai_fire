@@ -44,14 +44,16 @@ def _setup(context):
     with open(os.path.join(bringup, "worlds", "fire_world.sdf.in")) as f:
         world = f.read()
     assets = os.path.join(bringup, "assets")
-    world = world.replace("<!--FIRES-->", worldgen.fires_sdf(fires, assets))
+    decoys = yaml.safe_load(open(fires_file)).get("decoys") or []
+    world = world.replace("<!--FIRES-->", worldgen.fires_sdf(fires, assets) + "\n" + worldgen.decoys_sdf(decoys))
     world = world.replace("@RTF@", str(float(lc["speed"])))
     world = world.replace("<!--SHOT_CAMERA-->", SHOT_CAMERA if lc["shot_camera"] == "true" else "")
     fd, world_path = tempfile.mkstemp(prefix="fire_world_", suffix=".sdf")
     with os.fdopen(fd, "w") as f:
         f.write(world)
 
-    urdf = xacro.process_file(os.path.join(desc, "urdf", "fire_bot.urdf.xacro")).toxml()
+    urdf = xacro.process_file(os.path.join(desc, "urdf", "fire_bot.urdf.xacro"),
+                                mappings={"camera": lc["detection"]}).toxml()
     gz = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(share("ros_gz_sim"), "launch", "gz_sim.launch.py")),
         launch_arguments={"gz_args": f"-r -v 2 {world_path}" + ("" if gui else " -s --headless-rendering"),
@@ -66,22 +68,25 @@ def _setup(context):
         Node(package="ros_gz_bridge", executable="parameter_bridge", output="screen",
              parameters=[{"config_file": os.path.join(bringup, "config", "bridge.yaml"), **sim_time}]),
         Node(package="fire_robot_sim", executable="fire_sensor_sim", output="screen",
-             parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, **sim_time}]),
+             parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, "noise": float(lc["sensor_noise"]),
+                          "seed": int(lc["seed"]), **sim_time}]),
         Node(package="fire_robot_sim", executable="sim800l", output="screen", parameters=[sim_time]),
         Node(package="fire_robot_sim", executable="mission", output="screen",
-             parameters=[{"start_delay": float(lc["start_delay"]), "follow": gui and lc["follow"] == "true", **sim_time}]),
+             parameters=[{"start_delay": float(lc["start_delay"]), "follow": gui and lc["follow"] == "true", "visuals": lc["visuals"] == "true", **sim_time}]),
         Node(package="fire_robot_sim", executable="fire_manager", output="screen",
-             parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, "extinguish_time": float(lc["extinguish_time"]), **sim_time}]),
+             parameters=[{"robot_yaml": robot_yaml, "fires_file": fires_file, "extinguish_time": float(lc["extinguish_time"]),
+                          "visuals": lc["visuals"] == "true", **sim_time}]),
         Node(package="fire_robot_sim", executable="water_system", output="screen",
-             parameters=[{"robot_yaml": robot_yaml, "initial_percent": float(lc["tank_percent"]), **sim_time}]),
-        Node(package="fire_robot_sim", executable="cnn_detector", output="screen",
-             parameters=[{"model_path": os.path.join(bringup, "models", "fire_cnn.onnx"), **sim_time}]),
-        Node(package="fire_robot_sim", executable="fire_monitor", output="screen",
-             parameters=[{"show": lc["monitor_window"] == "true", **sim_time}]),
+             parameters=[{"robot_yaml": robot_yaml, "initial_percent": float(lc["tank_percent"]), "visuals": lc["visuals"] == "true", **sim_time}]),
+        *([Node(package="fire_robot_sim", executable="cnn_detector", output="screen",
+                parameters=[{"model_path": os.path.join(bringup, "models", "fire_cnn.onnx"), **sim_time}]),
+           Node(package="fire_robot_sim", executable="fusion", output="screen", parameters=[sim_time])] if lc["detection"] == "true" else []),
+        *([Node(package="fire_robot_sim", executable="fire_monitor", output="screen",
+                parameters=[{"show": lc["monitor_window"] == "true", **sim_time}])] if lc["detection"] == "true" else []),
         Node(package="fire_robot_sim", executable="arduino_bot", output="screen",
              condition=IfCondition(LaunchConfiguration("autonomous")),
              parameters=[{"robot_yaml": robot_yaml, "phone": lc["phone"], "wheel_speed": float(lc["wheel_speed"]),
-                          "swap_motor_sides": lc["swap_motor_sides"] == "true", **sim_time}]),
+                          "swap_motor_sides": lc["swap_motor_sides"] == "true", "firmware": lc["firmware"], **sim_time}]),
     ]
     if lc["shot_camera"] == "true":
         nodes.append(Node(package="ros_gz_bridge", executable="parameter_bridge", output="screen",
@@ -97,6 +102,11 @@ def generate_launch_description():
         DeclareLaunchArgument("phone", default_value="+910000000000", description="PHONE of fire_sensor.ino"),
         DeclareLaunchArgument("wheel_speed", default_value="0.4", description="m/s of a driven side"),
         DeclareLaunchArgument("swap_motor_sides", default_value="true", description="see docs/design.md"),
+        DeclareLaunchArgument("firmware", default_value="original", description="original = fire_sensor.ino as is; improved = call / SMS in the background (not in the .ino)"),
+        DeclareLaunchArgument("sensor_noise", default_value="0.0", description="relative std-dev of the flame-sensor signal (0 = ideal)"),
+        DeclareLaunchArgument("seed", default_value="0", description="random seed of the sensor noise"),
+        DeclareLaunchArgument("detection", default_value="true", description="run the CNN detector + fusion nodes (false = faster batch runs that only need the Arduino logic)"),
+        DeclareLaunchArgument("visuals", default_value="true", description="flame / jet / flicker updates in Gazebo (false = no flame / jet updates, and burnt-out fires keep blocking the robot: only for tests)"),
         DeclareLaunchArgument("start_delay", default_value="15", description="s the robot waits before the mission starts (0 = at once); Enter / START button starts it earlier"),
         DeclareLaunchArgument("speed", default_value="0.5", description="simulation speed = Gazebo real-time factor (0.5 = half speed, 1.0 = real time)"),
         DeclareLaunchArgument("follow", default_value="true", description="Gazebo camera follows the robot"),

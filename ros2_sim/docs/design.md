@@ -110,8 +110,8 @@ cut-out photo planes, they do not light the scene volumetrically; the "gas" is s
 4. **Haar cascade:** train with OpenCV `traincascade` (dataset from the README) and wrap as a node.
 5. **CNN review:** measure the user's CNN on real images and simulator frames; retrain a small CNN only as a fallback if
    it is unusable.
-6. **Fusion node:** flame-sensor trigger + CNN confirmation, confidence weighting, flame direction (from the sensor that
+6. **Fusion node (done):** flame-sensor trigger + CNN confirmation, confidence weighting, flame direction (from the sensor that
    fired, and the CNN/HSV box position) used to aim the robot and the nozzle.
-7. **Decoys + evaluation:** red/orange non-fire objects, a sunlit window and a hot lamp in the world; false alarms and missed
+7. **Decoys + evaluation (done for flame sensors / CNN / fused; HSV and Haar still to add):** red/orange non-fire objects, a sunlit window and a hot lamp in the world; false alarms and missed
    fires per method (flame sensors, HSV, Haar, CNN) versus the fused result, plus scenario tests.
 8. **Docs:** README section, demo GIF, diagrams.

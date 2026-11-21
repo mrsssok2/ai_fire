@@ -100,12 +100,94 @@ def loop(io: IO, phone: str, state: dict) -> Delay:
         yield from make_call(io, phone)
 
 
-def program(io: IO, phone: str) -> Delay:
+def _program_original(io: IO, phone: str) -> Delay:
     """setup() once, then loop() forever."""
     state = {"fire": False}     # boolean fire = false;
     yield from setup(io)
     while True:
         yield from loop(io, phone, state)
+
+
+# ---- "improved" firmware: the SIM800L alerts run in the background -------------------------------------------------
+# NOT part of fire_sensor.ino. The original blocks in delay() for the whole call (21 s) and SMS (7.15 s), so the robot
+# sprays ~1.7 s per ~23 s cycle and keeps its last motor command during the SMS. Here the modem work is a job on a
+# one-job-at-a-time queue (there is one modem) that is advanced on the same clock as the main loop, so sensing, driving
+# and spraying go on while the call / SMS is in progress. Same pins, same timings of each action, nothing else changed;
+# a new call / SMS is not queued while one of the same kind is already queued or running (one alert per episode).
+
+def _enqueue(queue: list, state: dict, kind: str, job: Delay) -> None:
+    if kind in state["pending"]:
+        return
+    state["pending"].add(kind)
+
+    def run():
+        try:
+            yield from job
+        finally:
+            state["pending"].discard(kind)
+    queue.append(run())
+
+
+def loop_improved(io: IO, phone: str, state: dict, queue: list) -> Delay:
+    io.servo_write(90)
+    r = io.digital_read
+    if r(LEFT) == 1 and r(RIGHT) == 1 and r(FORWARD) == 1:
+        yield 0.5
+        io.motors(HIGH, HIGH, HIGH, HIGH)
+    elif r(FORWARD) == 0:
+        io.motors(HIGH, LOW, HIGH, LOW)
+        state["fire"] = True
+    elif r(LEFT) == 0:
+        io.motors(HIGH, LOW, HIGH, HIGH)
+    elif r(RIGHT) == 0:
+        io.motors(HIGH, HIGH, HIGH, LOW)
+    yield 0.4
+
+    if r(GAS_SENSOR) == 0:
+        io.serial_println("Gas is Detected.")
+        _enqueue(queue, state, "sms", send_sms(io, phone))
+
+    if state["fire"]:
+        yield from put_off_fire(io, state)
+        io.serial_println("Fire Detected.")
+        _enqueue(queue, state, "call", make_call(io, phone))
+
+
+def program_improved(io: IO, phone: str) -> Delay:
+    state = {"fire": False, "pending": set()}
+    queue: list = []
+    main = _main_improved(io, phone, state, queue)
+    t, main_wake, job, job_wake = 0.0, 0.0, None, 0.0
+    eps = 1e-9
+    while True:
+        if job is None and queue:
+            job, job_wake = queue.pop(0), t
+        nxt = min(main_wake, job_wake) if job is not None else main_wake
+        if nxt > t:
+            yield nxt - t
+            t = nxt
+        if main_wake <= t + eps:
+            main_wake = t + next(main)
+        if job is not None and job_wake <= t + eps:
+            try:
+                job_wake = t + next(job)
+            except StopIteration:
+                job = None
+
+
+def _main_improved(io: IO, phone: str, state: dict, queue: list) -> Delay:
+    yield from setup(io)
+    while True:
+        yield from loop_improved(io, phone, state, queue)
+
+
+def program(io: IO, phone: str, mode: str = "original") -> Delay:
+    """mode 'original' = fire_sensor.ino exactly (default); 'improved' = same, but the call / SMS do not block."""
+    if mode == "improved":
+        return program_improved(io, phone)
+    if mode != "original":
+        raise ValueError(f"unknown firmware mode {mode!r}")
+    return _program_original(io, phone)
 
 
 def motor_speeds(lm1: int, lm2: int, rm1: int, rm2: int) -> tuple[float, float]:

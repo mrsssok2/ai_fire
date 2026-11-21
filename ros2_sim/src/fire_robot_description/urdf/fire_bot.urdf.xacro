@@ -5,6 +5,7 @@
      All geometry comes from config/robot.yaml. Gazebo: DiffDrive on all four wheels (/cmd_vel), servo through
      JointPositionController (/nozzle/cmd, radians), ground-truth odometry, joint states, camera. -->
 <robot name="fire_bot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="camera" default="true"/>     <!-- false: no camera sensor (batch runs that only need the Arduino logic) -->
   <xacro:property name="cfg" value="${xacro.load_yaml('$(find fire_robot_description)/config/robot.yaml')}"/>
   <xacro:property name="L" value="${cfg['chassis']['length']}"/>
   <xacro:property name="W" value="${cfg['chassis']['width']}"/>
@@ -191,6 +192,7 @@
     <parent link="base_link"/><child link="camera_link"/>
     <origin xyz="${cfg['camera']['x']} ${cfg['camera']['y']} ${cfg['camera']['z']}"/>
   </joint>
+  <xacro:if value="$(arg camera)">
   <gazebo reference="camera_link">
     <sensor name="camera" type="camera">
       <camera>
@@ -203,6 +205,7 @@
       <topic>/camera/image_raw</topic>
     </sensor>
   </gazebo>
+  </xacro:if>
 
   <!-- ===== Gazebo plugins ===== -->
   <gazebo>

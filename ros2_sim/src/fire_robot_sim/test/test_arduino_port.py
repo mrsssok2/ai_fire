@@ -146,3 +146,66 @@ def test_pins_to_twist():
     # right flame pins turn right in the default wiring
     assert al.to_twist(1, 1, 1, 0, 0.4, 0.25)[1] == pytest.approx(-1.6)
     assert al.to_twist(0, 1, 0, 1, 0.4, 0.25)[0] == pytest.approx(-0.4)   # reverse
+
+
+# ---- improved firmware (call / SMS in the background) ----
+
+def run_improved(io, seconds):
+    prog = al.program(io, PHONE, "improved")
+    io.t = 0.0
+    wake = 0.0
+    while True:
+        io.t = wake
+        if io.t > seconds:
+            return
+        wake += next(prog)
+
+
+def test_default_mode_is_the_original_and_unknown_modes_are_rejected():
+    assert al.program(FakeIO(), PHONE).__name__ == "_program_original"
+    with pytest.raises(ValueError):
+        al.program(FakeIO(), PHONE, "nonsense")
+
+
+def test_improved_sprays_again_while_the_call_is_in_progress():
+    io = FakeIO()
+    io.levels[al.FORWARD] = 0                                   # fire stays in front
+    run_improved(io, 2.0 + 25.0)
+    pump_on = [t for t, v in io.events("pump") if v]
+    assert len(pump_on) >= 10                                   # original: 2 in 25 s (one cycle per 23 s)
+    assert pump_on[1] - pump_on[0] == pytest.approx(0.4 + 0.5 + 1.22 + 0.5 - 0.5, abs=0.6)    # a cycle is ~2.1 s
+    call_start = [t for t, v in io.events("gsm") if v.startswith("ATD")]
+    assert len(call_start) == 2 and call_start[1] - call_start[0] > 20.9   # one call at a time, the next only after ATH
+
+
+def test_improved_makes_one_call_at_a_time_with_the_same_at_strings():
+    io = FakeIO()
+    io.levels[al.FORWARD] = 0
+    run_improved(io, 2.0 + 60.0)
+    modem, events = Sim800l(), []
+    for t, text in io.events("gsm"):
+        events += modem.feed(text, t)
+    calls = [e for e in events if e["type"] in ("call_start", "call_end")]
+    kinds = [e["type"] for e in calls]
+    assert kinds[:2 * (len(kinds) // 2)] == ["call_start", "call_end"] * (len(kinds) // 2)      # never two calls at once
+    assert all(e["duration_s"] == pytest.approx(20.0) for e in calls if e["type"] == "call_end")
+
+
+def test_improved_sms_does_not_freeze_the_motors():
+    io = FakeIO()
+    io.levels[al.LEFT] = 0
+    io.levels[al.GAS_SENSOR] = 0
+    run_improved(io, 2.0 + 8.0)
+    assert len(io.events("motors")) > 8                          # original: 2 motor writes in the same time
+    gsm = [v for _, v in io.events("gsm")[2:]]
+    assert gsm[:4] == ["AT+CMGF=1\r", f'AT+CMGS="{PHONE}"\r', "Gas Detected", "\x1a"]
+    assert gsm[4:] == ["AT+CMGF=1\r"]       # the gas is still there: the next SMS starts only after the first one finished (7.15 s)
+
+
+def test_improved_first_cycle_is_identical_to_the_original_until_the_call():
+    a, b = FakeIO(), FakeIO()
+    a.levels[al.FORWARD] = b.levels[al.FORWARD] = 0
+    run(a, 2.0 + 2.3)
+    run_improved(b, 2.0 + 2.3)
+    strip = lambda io: [(round(t, 6), k, v) for t, k, v in io.log if k in ("motors", "pump", "servo") and t < 4.1]
+    assert strip(a) == strip(b)

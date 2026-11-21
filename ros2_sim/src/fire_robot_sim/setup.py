@@ -25,5 +25,6 @@ setup(
         "cnn_detector = fire_robot_sim.cnn_detector:main",
         "fire_monitor = fire_robot_sim.fire_monitor:main",
         "mission = fire_robot_sim.mission_node:main",
+        "fusion = fire_robot_sim.fusion_node:main",
     ]},
 )

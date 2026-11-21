@@ -52,6 +52,7 @@ class ArduinoBot(Node):
         self.declare_parameter("phone", "+910000000000")      # PHONE in fire_sensor.ino: set your own number
         self.declare_parameter("wheel_speed", 0.4)             # m/s of a driven side (assumed L298N + TT motors)
         self.declare_parameter("swap_motor_sides", True)       # see docs/design.md
+        self.declare_parameter("firmware", "original")         # "original" = fire_sensor.ino; "improved" = call / SMS in the background
         with open(self.get_parameter("robot_yaml").value) as f:
             self.track = yaml.safe_load(f)["wheels"]["track"]
         self.cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
@@ -80,9 +81,9 @@ class ArduinoBot(Node):
         """Mission start = power on the Arduino (setup() runs, then loop()); reset = power off, everything idle."""
         if msg.data and not self.running:
             self.io.pins = (1, 1, 1, 1)
-            self.prog = al.program(self.io, self.get_parameter("phone").value)
+            self.prog = al.program(self.io, self.get_parameter("phone").value, self.get_parameter("firmware").value)
             self.wake = self.now()
-            self.get_logger().info("fire_sensor.ino started (setup takes 2 s)")
+            self.get_logger().info(f"fire_sensor.ino started, firmware={self.get_parameter('firmware').value} (setup takes 2 s)")
         elif not msg.data and self.running:
             self.prog = None
             self.io.pins = (1, 1, 1, 1)

@@ -163,3 +163,55 @@ def fires_sdf(fires, assets_dir):
                 out.append(variant_model(f, frame, level, assets_dir))
     out.append(jet_models())
     return "\n".join(out)
+
+
+# ---- decoys: things that are not fire but look like it to the camera and / or the IR flame sensors -------------------
+# kind -> signal an IR flame module sees from it, as an intensity-1-fire equivalent (0 = invisible to the sensors).
+# A hot lamp is full of IR (trips the sensors); sunlight through a window carries IR too, less of it.
+DECOY_IR = {"red_box": 0.0, "red_barrel": 0.0, "orange_cone": 0.0, "window": 0.8, "lamp": 1.6}
+
+
+def decoy_ir(decoy):
+    return float(decoy.get("ir", DECOY_IR[decoy["kind"]]))
+
+
+def decoy_model(d):
+    """One decoy at its place. Its local +x (the front) faces the robot's start (the origin)."""
+    import math as _m
+    kind = d["kind"]
+    yaw = _m.atan2(-d["y"], -d["x"])
+    if kind == "red_box":
+        parts = [_vis("box", "<box><size>0.16 0.16 0.28</size></box>", "0 0 0.14 0 0 0", _color(0.80, 0.07, 0.05), True)]
+    elif kind == "red_barrel":
+        parts = [_vis("barrel", _cyl(0.09, 0.30), "0 0 0.15 0 0 0", _color(0.75, 0.05, 0.04), True),
+                 _vis("band", _cyl(0.0915, 0.03), "0 0 0.15 0 0 0", _color(0.12, 0.12, 0.12))]
+    elif kind == "orange_cone":
+        parts = [_vis("cone", "<cone><radius>0.08</radius><length>0.30</length></cone>", "0 0 0.15 0 0 0", _color(1.0, 0.42, 0.04), True),
+                 _vis("base", "<box><size>0.2 0.2 0.015</size></box>", "0 0 0.0075 0 0 0", _color(0.15, 0.15, 0.15))]
+    elif kind == "window":      # wall segment with a very bright warm pane (sunlit)
+        parts = [_vis("wall", "<box><size>0.06 0.95 0.85</size></box>", "0 0 0.425 0 0 0", _color(0.80, 0.78, 0.72), True),
+                 _vis("frame", "<box><size>0.02 0.58 0.63</size></box>", "0.035 0 0.45 0 0 0", _color(0.2, 0.15, 0.1)),
+                 _vis("pane", "<box><size>0.02 0.52 0.57</size></box>", "0.042 0 0.45 0 0 0",
+                      _color(1.0, 0.93, 0.70, emissive=(1.0, 0.92, 0.65)))]
+    elif kind == "lamp":        # hot work lamp: stand, dark shade, glowing orange-white bulb, warm light
+        parts = [_vis("foot", _cyl(0.07, 0.02), "0 0 0.01 0 0 0", _color(0.1, 0.1, 0.1)),
+                 _vis("pole", _cyl(0.01, 0.28), "0 0 0.16 0 0 0", _color(0.15, 0.15, 0.15)),
+                 _vis("shade", _cyl(0.075, 0.07), "-0.03 0 0.34 0 1.5708 0", _color(0.12, 0.12, 0.12)),
+                 _vis("bulb", "<sphere><radius>0.055</radius></sphere>", "0.03 0 0.34 0 0 0",
+                      _color(1.0, 0.72, 0.30, emissive=(1.0, 0.68, 0.25))),
+                 '<light type="point" name="lamp_light"><pose>0.08 0 0.34 0 0 0</pose><diffuse>1 0.65 0.25 1</diffuse><specular>0.3 0.2 0.1 1</specular>'
+                 '<attenuation><range>2.4</range><constant>0.3</constant><linear>0.2</linear><quadratic>0.7</quadratic></attenuation>'
+                 '<cast_shadows>false</cast_shadows></light>']
+    else:
+        raise ValueError(f"unknown decoy kind {kind!r}")
+    return f'''    <model name="decoy_{d["id"]}">
+      <static>true</static>
+      <pose>{d["x"]} {d["y"]} 0 0 0 {yaw:.4f}</pose>
+      <link name="link">
+        {chr(10).join("        " + p for p in parts)}
+      </link>
+    </model>'''
+
+
+def decoys_sdf(decoys):
+    return "\n".join(decoy_model(d) for d in decoys)
