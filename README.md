@@ -73,6 +73,14 @@ python fire.py
 
 My Arduino + Raspberry Pi fire-fighting robot rebuilt in **ROS 2 Jazzy + Gazebo Harmonic** (Docker): the Arduino logic of `fire_sensor.ino` is **ported line by line** (including its blocking `delay()`s), the camera detection runs **my own trained CNN** (`keras_model.h5`, converted to ONNX), and the robot, the water tank and the fires are simulated. Everything lives in [`ros2_sim/`](ros2_sim/); the original files above are untouched.
 
+![Improved firmware demo](ros2_sim/docs/img/fire_improved_demo.gif)
+
+*Improved firmware (`firmware:=improved`): the SIM800 call runs in the background, so the pump stays ON while dialling; left: live detection panel (CNN 100%, flame sensors, water tank, pump, servo, alert), right: the robot spraying in Gazebo*
+
+![Terminal log of the improved-firmware run](ros2_sim/docs/img/fire_improved_terminal_log.png)
+
+*Terminal log of the same run: the call is dialling while fire detection and spraying continue, fire f1 goes out after 5.3 s under water, then the 500 ml tank runs dry (water, not time, is the real limit)*
+
 ![Fire Detection window next to Gazebo](ros2_sim/docs/img/fire_sim_detection.png)
 
 *1. The live Fire Detection window: robot camera with the CNN confidence banner (`FIRE DETECTED 100%`), boxes around fire regions, flame sensors L / F / R, gas level, water tank, pump, servo angle and the last SIM800L alert.*
