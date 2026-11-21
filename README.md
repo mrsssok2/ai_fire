@@ -93,6 +93,23 @@ My Arduino + Raspberry Pi fire-fighting robot rebuilt in **ROS 2 Jazzy + Gazebo 
 
 *3. Spraying: pump ON, servo-swept nozzle, the water jet hits the fire, one fire is already out and the tank level is dropping.*
 
+### Real phone alerts (Telegram)
+
+The simulated robot can alert my real phone: the optional `notifier` node sends the SIM800 events (gas SMS, fire call, tank empty, mission done) through a Telegram bot. Fire alerts carry the latest annotated camera frame and a status line (CNN confidence, which flame sensors, gas ppm, water %). The SIM800 emulator itself is unchanged.
+
+| ![Telegram alert on the phone](ros2_sim/docs/img/fire_telegram_phone.png) | ![Notifier terminal log](ros2_sim/docs/img/fire_telegram_terminal.png) |
+|---|---|
+| *Real alerts on my phone from the simulated robot: FIRE ALERT with the live annotated camera frame and status (CNN confidence, flame sensors, gas ppm, water %), rate-limited* | *The notifier node sending the alert, and suppressing the repeat call within 60 s* |
+
+Enable it with `alerts:=telegram`. The bot token (from `@BotFather`) and my chat id are **environment variables only** (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`): they are never written to a file, a log or git (Docker Compose passes them into the container). Rate limit: one message per kind per 60 s, at most 10 per 10 minutes.
+
+```bash
+export TELEGRAM_BOT_TOKEN='...'                          # typed in the terminal, never committed
+python3 ros2_sim/scripts/telegram_chat_id.py             # after pressing Start on the bot: prints the chat id
+export TELEGRAM_CHAT_ID='...'
+cd ros2_sim && ./run.sh alerts:=telegram                 # add telegram_dry_run:=true to only print the messages
+```
+
 ### Real robot vs simulation
 
 | | Real robot (this repo) | Simulation (`ros2_sim/`) |
@@ -131,6 +148,7 @@ flowchart LR
     pump["Pump + water tank"]
     srv["Servo nozzle sweep 50-110"]
     gsm["SIM800L: SMS + call"]
+    tg["Telegram notifier<br/>(optional, alerts:=telegram)"]
   end
   fl --> ino
   gas --> ino
@@ -145,6 +163,9 @@ flowchart LR
   dec --> pump
   dec --> srv
   dec --> gsm
+  gsm -. "events" .-> tg
+  win -. "annotated frame" .-> tg
+  tg --> phone(["Phone: FIRE ALERT + photo + status"])
 ```
 
 ### 2. ROS 2 nodes and topics
@@ -160,6 +181,7 @@ flowchart LR
   cd["cnn_detector"]
   mon["fire_monitor<br/>window"]
   fu["fusion"]
+  nt["notifier<br/>(alerts:=telegram)"]
   ms["mission"]
   gz -- "/fire_bot/odom, /joint_states" --> fs
   fm -- "/fires/state" --> fs
@@ -178,6 +200,10 @@ flowchart LR
   fs -- "/sensors/flame_*/analog" --> fu
   fu -- "/fusion/state, /fusion/alarm, /fusion/bearing" --> out2(["alarms + aim direction"])
   mon -- "/fire/annotated" --> out(["image topic"])
+  mon -- "/fire/annotated" --> nt
+  gsm -- "/alerts sms, call" --> nt
+  ms -- "/mission/state" --> nt
+  nt -- "Telegram Bot API" --> phone(["phone"])
   mon -- "/mission/command start / reset" --> ms
   ms -- "/mission/state" --> mon
 ```
